@@ -1,0 +1,30 @@
+# DotDotPwn Python Implementation - Core Dependencies
+# Essential dependencies for directory traversal fuzzing
+
+# Web Framework & API
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.4.0
+pydantic-settings>=2.0.0
+python-multipart>=0.0.6
+
+# HTTP & Networking
+aiohttp>=3.9.0
+requests>=2.31.0
+dnspython>=2.4.0
+
+# CLI & User Interface
+typer>=0.9.0
+rich>=13.6.0
+
+# File Operations
+aiofiles>=23.2.0
+
+# Security & Cryptography
+cryptography>=41.0.0
+
+# Network Scanning
+python-nmap>=0.7.1
+
+# Note: ftplib is part of Python standard library (no installation needed)
+# Note: socket, ssl, and other networking modules are built-in

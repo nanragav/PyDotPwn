@@ -1,0 +1,7 @@
+.venv
+dotdotpwn-env
+__pycache__/
+dotdotpwn_python.egg-info/
+*.pyc
+*.pyo
+*.pyd
