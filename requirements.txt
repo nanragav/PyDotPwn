@@ -28,3 +28,11 @@ python-nmap>=0.7.1
 
 # Note: ftplib is part of Python standard library (no installation needed)
 # Note: socket, ssl, and other networking modules are built-in
+
+pyqt6>=6.9.0
+
+qtawesome>=1.4.0
+
+qdarkstyle>=3.2.0
+
+pyqtgraph>=0.13.0
