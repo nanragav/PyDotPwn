@@ -17,6 +17,9 @@ dnspython>=2.4.0
 typer>=0.9.0
 rich>=13.6.0
 
+# System Monitoring
+psutil>=5.9.0
+
 # File Operations
 aiofiles>=23.2.0
 

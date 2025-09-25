@@ -22,13 +22,14 @@ project_root = Path(__file__).parent
 src_path = project_root / "src"
 sys.path.insert(0, str(src_path))
 
+
 class DotDotPwnVerifier:
     def __init__(self):
         self.results = {
             "overall": {"passed": 0, "failed": 0, "warnings": 0},
             "tests": []
         }
-        self.python_cmd = str(project_root / "dotdotpwn-env" / "bin" / "python")
+        self.python_cmd = sys.executable  # Use the currently running Python interpreter
         self.dotdotpwn_script = str(project_root / "dotdotpwn.py")
         
     def log_test(self, test_name: str, status: str, message: str, details: str = ""):

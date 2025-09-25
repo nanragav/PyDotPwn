@@ -65,6 +65,7 @@ class ScanConfiguration:
     target_host: str = ""
     target_port: int = 80
     target_file: str = "/etc/passwd"
+    target_url: str = ""
     pattern: str = "root:"
     depth: int = 6
     os_type: str = "unix"
@@ -79,6 +80,10 @@ class ScanConfiguration:
     password: str = ""
     http_method: str = "GET"
     user_agent: str = ""
+    payload_file: str = ""
+    os_detection: bool = False
+    service_detection: bool = False
+    bisection: bool = False
     output_format: str = "text"
     output_file: str = ""
 
@@ -263,7 +268,7 @@ class ScanWorker(QThread):
         """Build command line arguments from configuration"""
         cmd = [self.python_cmd, self.script_path]
         
-        if self.config.module == "generate":
+        if self.config.module == "stdout":
             cmd.extend(["generate"])
             cmd.extend(["--os-type", self.config.os_type])
             cmd.extend(["--depth", str(self.config.depth)])
@@ -294,6 +299,9 @@ class ScanWorker(QThread):
             if self.config.target_file:
                 cmd.extend(["--file", self.config.target_file])
             
+            if self.config.target_url:
+                cmd.extend(["--url", self.config.target_url])
+            
             if self.config.pattern:
                 cmd.extend(["--pattern", self.config.pattern])
             
@@ -315,6 +323,12 @@ class ScanWorker(QThread):
             if self.config.quiet_mode:
                 cmd.append("--quiet")
             
+            if self.config.extra_files:
+                cmd.append("--extra-files")
+            
+            if self.config.extension:
+                cmd.extend(["--extension", self.config.extension])
+            
             if self.config.username:
                 cmd.extend(["--username", self.config.username])
             
@@ -323,6 +337,21 @@ class ScanWorker(QThread):
             
             if self.config.http_method != "GET":
                 cmd.extend(["--method", self.config.http_method])
+            
+            if self.config.user_agent:
+                cmd.extend(["--user-agent", self.config.user_agent])
+            
+            if self.config.payload_file:
+                cmd.extend(["--payload", self.config.payload_file])
+            
+            if self.config.os_detection:
+                cmd.append("--os-detection")
+            
+            if self.config.service_detection:
+                cmd.append("--service-detection")
+            
+            if self.config.bisection:
+                cmd.append("--bisection")
             
             if self.config.output_file:
                 cmd.extend(["--report", self.config.output_file])
@@ -355,7 +384,7 @@ class DotDotPwnGUI(QMainWindow):
         
         # Get paths
         self.project_root = Path(__file__).parent.parent
-        self.python_cmd = str(self.project_root / "dotdotpwn-env" / "bin" / "python")
+        self.python_cmd = sys.executable  # Use the currently running Python interpreter
         self.script_path = str(self.project_root / "dotdotpwn.py")
         
         # Settings
@@ -377,7 +406,18 @@ class DotDotPwnGUI(QMainWindow):
         # Set window properties
         self.setWindowTitle("DotDotPwn GUI - Directory Traversal Fuzzer")
         self.setWindowIcon(qta.icon('fa5s.bug'))
-        self.resize(1400, 900)
+        
+        # Make window size adaptive to screen size
+        screen = QApplication.primaryScreen().availableGeometry()
+        width = min(int(screen.width() * 0.85), 1600)  # 85% of screen width, max 1600
+        height = min(int(screen.height() * 0.85), 1000)  # 85% of screen height, max 1000
+        self.resize(width, height)
+        
+        # Center the window
+        self.move(
+            (screen.width() - width) // 2,
+            (screen.height() - height) // 2
+        )
         
         # Apply dark theme
         self.setStyleSheet(qdarkstyle.load_stylesheet_pyqt6())
@@ -402,9 +442,14 @@ class DotDotPwnGUI(QMainWindow):
         right_panel = self.create_output_panel()
         splitter.addWidget(right_panel)
         
-        # Set splitter proportions
+        # Set splitter proportions (50/50 split)
         splitter.setStretchFactor(0, 1)  # Config panel
-        splitter.setStretchFactor(1, 2)  # Output panel
+        splitter.setStretchFactor(1, 1)  # Output panel
+        
+        # Set initial sizes for better 50/50 distribution
+        screen = QApplication.primaryScreen().availableGeometry()
+        total_width = min(int(screen.width() * 0.85), 1600)
+        splitter.setSizes([int(total_width * 0.5), int(total_width * 0.5)])
         
     def create_configuration_panel(self) -> QWidget:
         """Create the configuration panel"""
@@ -521,7 +566,7 @@ class DotDotPwnGUI(QMainWindow):
         # Module selection
         self.module_combo = QComboBox()
         self.module_combo.addItems([
-            "http", "http-url", "ftp", "tftp", "payload", "generate"
+            "http", "http-url", "ftp", "tftp", "payload", "stdout"
         ])
         self.module_combo.currentTextChanged.connect(self.on_module_changed)
         layout.addRow("Module:", self.module_combo)
@@ -560,6 +605,11 @@ class DotDotPwnGUI(QMainWindow):
         self.file_edit.setPlaceholderText("/etc/passwd or boot.ini")
         layout.addRow("Target File:", self.file_edit)
         
+        # Target URL (for http-url module)
+        self.url_edit = QLineEdit()
+        self.url_edit.setPlaceholderText("http://example.com/page.php?file=TRAVERSAL")
+        layout.addRow("Target URL:", self.url_edit)
+        
         # Pattern
         self.pattern_edit = QLineEdit()
         self.pattern_edit.setPlaceholderText("root: or Administrator")
@@ -585,8 +635,26 @@ class DotDotPwnGUI(QMainWindow):
         
         # HTTP Method
         self.method_combo = QComboBox()
-        self.method_combo.addItems(["GET", "POST", "HEAD", "PUT", "DELETE"])
+        self.method_combo.addItems(["GET", "POST", "HEAD", "PUT", "DELETE", "COPY", "MOVE"])
         layout.addRow("HTTP Method:", self.method_combo)
+        
+        # User Agent (for HTTP)
+        self.user_agent_edit = QLineEdit()
+        self.user_agent_edit.setPlaceholderText("Mozilla/5.0 (Custom User Agent)")
+        layout.addRow("User Agent:", self.user_agent_edit)
+        
+        # Payload File (for payload module)
+        payload_layout = QHBoxLayout()
+        self.payload_edit = QLineEdit()
+        self.payload_edit.setPlaceholderText("custom_payloads.txt")
+        
+        self.payload_browse_button = QPushButton("Browse")
+        self.payload_browse_button.clicked.connect(self.browse_payload_file)
+        
+        payload_layout.addWidget(self.payload_edit)
+        payload_layout.addWidget(self.payload_browse_button)
+        
+        layout.addRow("Payload File:", payload_layout)
         
         # Options
         options_layout = QVBoxLayout()
@@ -597,10 +665,18 @@ class DotDotPwnGUI(QMainWindow):
         self.quiet_check = QCheckBox("Quiet mode")
         self.extra_files_check = QCheckBox("Include extra files")
         
+        # Advanced options
+        self.os_detection_check = QCheckBox("OS detection (requires nmap)")
+        self.service_detection_check = QCheckBox("Service detection/banner grab")
+        self.bisection_check = QCheckBox("Bisection algorithm")
+        
         options_layout.addWidget(self.break_first_check)
         options_layout.addWidget(self.continue_error_check)
         options_layout.addWidget(self.quiet_check)
         options_layout.addWidget(self.extra_files_check)
+        options_layout.addWidget(self.os_detection_check)
+        options_layout.addWidget(self.service_detection_check)
+        options_layout.addWidget(self.bisection_check)
         
         layout.addRow("Options:", options_layout)
         
@@ -911,20 +987,33 @@ class DotDotPwnGUI(QMainWindow):
     def on_module_changed(self, module):
         """Handle module selection change"""
         # Update UI based on selected module
-        is_generate = module == "generate"
+        is_stdout = module == "stdout"
+        is_http_url = module == "http-url"
+        is_payload = module == "payload"
+        is_http = module in ["http", "http-url"]
         
         # Enable/disable fields based on module
-        self.host_edit.setEnabled(not is_generate)
-        self.port_spin.setEnabled(not is_generate)
-        self.pattern_edit.setEnabled(not is_generate)
-        self.ssl_check.setEnabled(not is_generate)
-        self.username_edit.setEnabled(not is_generate)
-        self.password_edit.setEnabled(not is_generate)
-        self.method_combo.setEnabled(not is_generate)
+        self.host_edit.setEnabled(not is_stdout and not is_http_url)
+        self.port_spin.setEnabled(not is_stdout)
+        self.pattern_edit.setEnabled(not is_stdout)
+        self.ssl_check.setEnabled(not is_stdout)
+        self.username_edit.setEnabled(not is_stdout)
+        self.password_edit.setEnabled(not is_stdout)
+        self.method_combo.setEnabled(not is_stdout and is_http)
+        self.user_agent_edit.setEnabled(not is_stdout and is_http)
+        
+        # Show/hide module-specific fields
+        self.url_edit.setEnabled(is_http_url)
+        self.payload_edit.setEnabled(is_payload)
+        self.payload_browse_button.setEnabled(is_payload)
         
         # Update status
-        if is_generate:
-            self.status_label.setText("Pattern Generation Mode")
+        if is_stdout:
+            self.status_label.setText("Pattern Generation Mode (STDOUT)")
+        elif is_http_url:
+            self.status_label.setText("HTTP URL Module - Use target URL field")
+        elif is_payload:
+            self.status_label.setText("Payload Module - Specify payload file")
         else:
             self.status_label.setText("Scan Mode")
     
@@ -970,6 +1059,7 @@ class DotDotPwnGUI(QMainWindow):
         config.target_host = self.host_edit.text()
         config.target_port = self.port_spin.value()
         config.target_file = self.file_edit.text()
+        config.target_url = self.url_edit.text()
         config.pattern = self.pattern_edit.text()
         config.depth = self.depth_spin.value()
         config.os_type = self.os_combo.currentText()
@@ -983,6 +1073,11 @@ class DotDotPwnGUI(QMainWindow):
         config.username = self.username_edit.text()
         config.password = self.password_edit.text()
         config.http_method = self.method_combo.currentText()
+        config.user_agent = self.user_agent_edit.text()
+        config.payload_file = self.payload_edit.text()
+        config.os_detection = self.os_detection_check.isChecked()
+        config.service_detection = self.service_detection_check.isChecked()
+        config.bisection = self.bisection_check.isChecked()
         config.output_format = self.format_combo.currentText()
         config.output_file = self.output_edit.text()
         
@@ -1105,6 +1200,16 @@ class DotDotPwnGUI(QMainWindow):
         
         if filename:
             self.output_edit.setText(filename)
+
+    def browse_payload_file(self):
+        """Browse for payload file"""
+        filename, _ = QFileDialog.getOpenFileName(
+            self, "Select Payload File", "",
+            "Text Files (*.txt);;All Files (*)"
+        )
+        
+        if filename:
+            self.payload_edit.setText(filename)
     
     def update_resource_display(self, data: dict):
         """Update resource monitoring display"""
