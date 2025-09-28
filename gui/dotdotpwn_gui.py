@@ -268,7 +268,8 @@ class ScanWorker(QThread):
         """Build command line arguments from configuration"""
         cmd = [self.python_cmd, self.script_path]
         
-        if self.config.module == "stdout":
+        if self.config.module == "generate":
+            # Generate command uses separate 'generate' subcommand
             cmd.extend(["generate"])
             cmd.extend(["--os-type", self.config.os_type])
             cmd.extend(["--depth", str(self.config.depth)])
@@ -286,7 +287,7 @@ class ScanWorker(QThread):
                 cmd.extend(["--output-file", self.config.output_file])
         
         else:
-            # Main scan command
+            # Main scan command (including stdout module)
             cmd.extend(["main"])
             cmd.extend(["--module", self.config.module])
             
@@ -402,6 +403,9 @@ class DotDotPwnGUI(QMainWindow):
         
         # Load settings
         self.load_settings()
+        
+        # Trigger initial module change to set proper field states
+        self.on_module_changed(self.module_combo.currentText())
         
         # Set window properties
         self.setWindowTitle("DotDotPwn GUI - Directory Traversal Fuzzer")
@@ -566,9 +570,17 @@ class DotDotPwnGUI(QMainWindow):
         # Module selection
         self.module_combo = QComboBox()
         self.module_combo.addItems([
-            "http", "http-url", "ftp", "tftp", "payload", "stdout"
+            "http", "http-url", "ftp", "tftp", "payload", "stdout", "generate"
         ])
         self.module_combo.currentTextChanged.connect(self.on_module_changed)
+        self.module_combo.setToolTip("Select the fuzzing module:\n"
+                                   "• http: Standard HTTP fuzzing (requires host)\n"
+                                   "• http-url: URL-based fuzzing (requires target URL)\n"
+                                   "• ftp: FTP directory traversal (requires host)\n"
+                                   "• tftp: TFTP directory traversal (requires host)\n"
+                                   "• payload: Custom payloads (requires host + payload file)\n"
+                                   "• stdout: Generate patterns for network testing (no host needed)\n"
+                                   "• generate: Generate patterns for offline use (no host needed)")
         layout.addRow("Module:", self.module_combo)
         
         # OS Type
@@ -592,31 +604,37 @@ class DotDotPwnGUI(QMainWindow):
         # Host
         self.host_edit = QLineEdit()
         self.host_edit.setPlaceholderText("example.com or 192.168.1.1")
+        self.host_edit.setToolTip("Target hostname or IP address.\nRequired for: http, ftp, tftp, payload modules.\nNot needed for: http-url, stdout modules.")
         layout.addRow("Host:", self.host_edit)
         
         # Port
         self.port_spin = QSpinBox()
         self.port_spin.setRange(1, 65535)
         self.port_spin.setValue(80)
+        self.port_spin.setToolTip("Target port number (default: 80 for HTTP, 21 for FTP, 69 for TFTP)")
         layout.addRow("Port:", self.port_spin)
         
         # Target file
         self.file_edit = QLineEdit()
         self.file_edit.setPlaceholderText("/etc/passwd or boot.ini")
+        self.file_edit.setToolTip("Target file to attempt to read via directory traversal")
         layout.addRow("Target File:", self.file_edit)
         
         # Target URL (for http-url module)
         self.url_edit = QLineEdit()
         self.url_edit.setPlaceholderText("http://example.com/page.php?file=TRAVERSAL")
+        self.url_edit.setToolTip("Target URL with TRAVERSAL placeholder.\nRequired for http-url module only.\nExample: http://site.com/include.php?page=TRAVERSAL")
         layout.addRow("Target URL:", self.url_edit)
         
         # Pattern
         self.pattern_edit = QLineEdit()
         self.pattern_edit.setPlaceholderText("root: or Administrator")
+        self.pattern_edit.setToolTip("Text pattern to detect successful directory traversal.\nExamples: 'root:' for /etc/passwd, 'Administrator' for Windows users")
         layout.addRow("Success Pattern:", self.pattern_edit)
         
         # SSL
         self.ssl_check = QCheckBox("Use SSL/HTTPS")
+        self.ssl_check.setToolTip("Enable SSL/TLS encryption for secure connections")
         layout.addRow("Security:", self.ssl_check)
         
         return group
@@ -988,28 +1006,70 @@ class DotDotPwnGUI(QMainWindow):
         """Handle module selection change"""
         # Update UI based on selected module
         is_stdout = module == "stdout"
+        is_generate = module == "generate"
+        is_pattern_only = is_stdout or is_generate
         is_http_url = module == "http-url"
         is_payload = module == "payload"
         is_http = module in ["http", "http-url"]
         
         # Enable/disable fields based on module
-        self.host_edit.setEnabled(not is_stdout and not is_http_url)
-        self.port_spin.setEnabled(not is_stdout)
-        self.pattern_edit.setEnabled(not is_stdout)
-        self.ssl_check.setEnabled(not is_stdout)
-        self.username_edit.setEnabled(not is_stdout)
-        self.password_edit.setEnabled(not is_stdout)
-        self.method_combo.setEnabled(not is_stdout and is_http)
-        self.user_agent_edit.setEnabled(not is_stdout and is_http)
+        self.host_edit.setEnabled(not is_pattern_only and not is_http_url)
+        self.port_spin.setEnabled(not is_pattern_only)
+        self.pattern_edit.setEnabled(not is_pattern_only)
+        self.ssl_check.setEnabled(not is_pattern_only)
+        self.username_edit.setEnabled(not is_pattern_only)
+        self.password_edit.setEnabled(not is_pattern_only)
+        self.method_combo.setEnabled(not is_pattern_only and is_http)
+        self.user_agent_edit.setEnabled(not is_pattern_only and is_http)
         
         # Show/hide module-specific fields
         self.url_edit.setEnabled(is_http_url)
         self.payload_edit.setEnabled(is_payload)
         self.payload_browse_button.setEnabled(is_payload)
         
+        # Update field styles and placeholders based on module
+        if is_http_url:
+            self.url_edit.setStyleSheet("QLineEdit { border: 2px solid #4CAF50; }")
+            self.host_edit.setStyleSheet("QLineEdit { border: 1px solid #ccc; }")
+            self.url_edit.setPlaceholderText("http://example.com/page.php?file=TRAVERSAL (Required)")
+            self.host_edit.setPlaceholderText("Not needed for http-url module")
+        elif is_payload:
+            self.payload_edit.setStyleSheet("QLineEdit { border: 2px solid #4CAF50; }")
+            self.host_edit.setStyleSheet("QLineEdit { border: 2px solid #4CAF50; }")
+            self.url_edit.setStyleSheet("QLineEdit { border: 1px solid #ccc; }")
+            self.payload_edit.setPlaceholderText("custom_payloads.txt (Required)")
+            self.host_edit.setPlaceholderText("example.com or 192.168.1.1 (Required)")
+        elif is_pattern_only:  # stdout or generate
+            self.host_edit.setStyleSheet("QLineEdit { border: 1px solid #ccc; }")
+            self.url_edit.setStyleSheet("QLineEdit { border: 1px solid #ccc; }")
+            self.payload_edit.setStyleSheet("QLineEdit { border: 1px solid #ccc; }")
+            if is_stdout:
+                self.host_edit.setPlaceholderText("Not needed for stdout module")
+            else:
+                self.host_edit.setPlaceholderText("Not needed for generate mode")
+            self.file_edit.setStyleSheet("QLineEdit { border: 2px solid #4CAF50; }")
+        else:
+            # Standard modules (http, ftp, tftp)
+            self.host_edit.setStyleSheet("QLineEdit { border: 2px solid #4CAF50; }")
+            self.url_edit.setStyleSheet("QLineEdit { border: 1px solid #ccc; }")
+            self.payload_edit.setStyleSheet("QLineEdit { border: 1px solid #ccc; }")
+            self.host_edit.setPlaceholderText("example.com or 192.168.1.1 (Required)")
+            self.url_edit.setPlaceholderText("Only for http-url module")
+        
+        # Reset common field styles
+        if not is_pattern_only:
+            self.pattern_edit.setStyleSheet("QLineEdit { border: 2px solid #4CAF50; }")
+            self.pattern_edit.setPlaceholderText("root: or Administrator (Required)")
+            self.file_edit.setStyleSheet("QLineEdit { border: 1px solid #ccc; }")
+        else:
+            self.pattern_edit.setStyleSheet("QLineEdit { border: 1px solid #ccc; }")
+            self.pattern_edit.setPlaceholderText("Not needed for pattern generation")
+        
         # Update status
         if is_stdout:
-            self.status_label.setText("Pattern Generation Mode (STDOUT)")
+            self.status_label.setText("STDOUT Mode - Generate patterns for network testing")
+        elif is_generate:
+            self.status_label.setText("GENERATE Mode - Generate patterns for offline use")
         elif is_http_url:
             self.status_label.setText("HTTP URL Module - Use target URL field")
         elif is_payload:
@@ -1092,10 +1152,37 @@ class DotDotPwnGUI(QMainWindow):
         # Get configuration
         config = self.get_current_config()
         
-        # Validate configuration
-        if config.module != "generate" and not config.target_host:
-            QMessageBox.warning(self, "Warning", "Please enter a target host!")
-            return
+        # Validate configuration based on module
+        if config.module in ["stdout", "generate"]:
+            # Pattern generation modules only need file pattern (optional)
+            pass  # No required fields for pattern generation
+        elif config.module == "http-url":
+            # HTTP-URL module needs target URL
+            if not config.target_url:
+                QMessageBox.warning(self, "Warning", "Please enter a target URL!")
+                return
+            if "TRAVERSAL" not in config.target_url:
+                QMessageBox.warning(self, "Warning", "Target URL must contain 'TRAVERSAL' placeholder!")
+                return
+        elif config.module == "payload":
+            # Payload module needs host and payload file
+            if not config.target_host:
+                QMessageBox.warning(self, "Warning", "Please enter a target host!")
+                return
+            if not config.payload_file:
+                QMessageBox.warning(self, "Warning", "Please specify a payload file!")
+                return
+        else:
+            # Other modules need target host
+            if not config.target_host:
+                QMessageBox.warning(self, "Warning", "Please enter a target host!")
+                return
+        
+        # Common validations for non-pattern-generation modules
+        if config.module not in ["stdout", "generate"]:
+            if not config.pattern:
+                QMessageBox.warning(self, "Warning", "Please enter a success pattern to detect vulnerabilities!")
+                return
         
         # Clear output
         self.clear_output()
@@ -1380,7 +1467,7 @@ class DotDotPwnGUI(QMainWindow):
         <p><b>Version:</b> 3.0.2</p>
         <p><b>Description:</b> A comprehensive directory traversal fuzzer with GUI interface</p>
         <p><b>Original Authors:</b> chr1x & nitr0us</p>
-        <p><b>Python Implementation:</b> AI Assistant</p>
+        <p><b>Python Implementation:</b> NanRagav</p>
         <p><b>GUI Framework:</b> PyQt6</p>
         
         <p>This tool is designed for authorized security testing only.</p>
