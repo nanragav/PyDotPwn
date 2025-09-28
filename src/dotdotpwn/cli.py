@@ -501,42 +501,72 @@ def main(
         if module == "http":
             if not quiet:
                 console.print("🌐 [cyan]Starting HTTP directory traversal scan...[/cyan]")
-            results = run_http_scan(
-                host, port, ssl, method, os_enum, depth, filename, extra_files,
-                extension, pattern, time_delay, break_on_first, continue_on_error,
-                bisection, quiet
-            )
+            try:
+                results = run_http_scan(
+                    host, port, ssl, method, os_enum, depth, filename, extra_files,
+                    extension, pattern, time_delay, break_on_first, continue_on_error,
+                    bisection, quiet
+                )
+            except Exception as e:
+                console.print(f"\n💥 [red]Scan error: {str(e)}[/red]")
+                if not continue_on_error:
+                    raise typer.Exit(1)
+                results = None
         elif module == "http-url":
             if not quiet:
                 console.print("🔗 [cyan]Starting HTTP URL fuzzing scan...[/cyan]")
-            results = run_http_url_scan(
-                url, pattern, os_enum, depth, filename, extra_files, extension,
-                time_delay, break_on_first, continue_on_error, bisection, quiet
-            )
+            try:
+                results = run_http_url_scan(
+                    url, pattern, os_enum, depth, filename, extra_files, extension,
+                    time_delay, break_on_first, continue_on_error, bisection, quiet
+                )
+            except Exception as e:
+                console.print(f"\n💥 [red]Scan error: {str(e)}[/red]")
+                if not continue_on_error:
+                    raise typer.Exit(1)
+                results = None
         elif module == "ftp":
             if not quiet:
                 console.print("📁 [cyan]Starting FTP directory traversal scan...[/cyan]")
-            results = run_ftp_scan(
-                host, port, username, password, os_enum, depth, filename,
-                extra_files, extension, time_delay, break_on_first,
-                continue_on_error, bisection, quiet
-            )
+            try:
+                results = run_ftp_scan(
+                    host, port, username, password, os_enum, depth, filename,
+                    extra_files, extension, time_delay, break_on_first,
+                    continue_on_error, bisection, quiet
+                )
+            except Exception as e:
+                console.print(f"\n💥 [red]Scan error: {str(e)}[/red]")
+                if not continue_on_error:
+                    raise typer.Exit(1)
+                results = None
         elif module == "tftp":
             if not quiet:
                 console.print("📡 [cyan]Starting TFTP directory traversal scan...[/cyan]")
-            results = run_tftp_scan(
-                host, port, os_enum, depth, filename, extra_files, extension,
-                time_delay, break_on_first, continue_on_error, bisection, quiet
-            )
+            try:
+                results = run_tftp_scan(
+                    host, port, os_enum, depth, filename, extra_files, extension,
+                    time_delay, break_on_first, continue_on_error, bisection, quiet
+                )
+            except Exception as e:
+                console.print(f"\n💥 [red]Scan error: {str(e)}[/red]")
+                if not continue_on_error:
+                    raise typer.Exit(1)
+                results = None
         elif module == "payload":
             if not quiet:
                 console.print("🔧 [cyan]Starting custom payload scan...[/cyan]")
-            payload_content = load_payload_file(payload_file)
-            results = run_payload_scan(
-                host, port, payload_content, ssl, pattern, os_enum, depth,
-                filename, extra_files, extension, time_delay, break_on_first,
-                continue_on_error, bisection, quiet
-            )
+            try:
+                payload_content = load_payload_file(payload_file)
+                results = run_payload_scan(
+                    host, port, payload_content, ssl, pattern, os_enum, depth,
+                    filename, extra_files, extension, time_delay, break_on_first,
+                    continue_on_error, bisection, quiet
+                )
+            except Exception as e:
+                console.print(f"\n💥 [red]Scan error: {str(e)}[/red]")
+                if not continue_on_error:
+                    raise typer.Exit(1)
+                results = None
 
         # Enhanced report generation with error handling
         if results and not quiet:
@@ -569,7 +599,7 @@ def main(
                 raise typer.Exit(1)
 
         # Print final summary
-        if not quiet and results:
+        if not quiet and results and isinstance(results, dict):
             console.print("\n📋 [bold blue]SCAN SUMMARY[/bold blue]")
             console.print(f"✅ [green]Scan completed successfully![/green]")
             console.print(f"🎯 Total vulnerabilities found: {results.get('vulnerabilities_found', 0)}")
@@ -584,6 +614,8 @@ def main(
                     console.print(f"  {i}. [red]{vuln.get('traversal', 'N/A')}[/red]")
                 if len(results['vulnerabilities']) > 5:
                     console.print(f"  ... and {len(results['vulnerabilities']) - 5} more")
+        elif not quiet and results is None:
+            console.print("\n⚠️  [yellow]Scan completed with errors - no results generated[/yellow]")
 
     except KeyboardInterrupt:
         console.print("\n🛑 [yellow]Scan interrupted by user[/yellow]")

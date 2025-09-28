@@ -5,3 +5,5 @@ dotdotpwn_python.egg-info/
 *.pyc
 *.pyo
 *.pyd
+verification_report.json
+reports/

@@ -337,7 +337,7 @@ class HTTPFuzzer:
         """
         return self.fuzz_sync([traversal], pattern=pattern)
 
-    def generate_and_fuzz(
+    async def generate_and_fuzz(
         self,
         os_type: OSType = OSType.GENERIC,
         depth: int = 6,
@@ -378,8 +378,8 @@ class HTTPFuzzer:
             extension=extension
         )
 
-        # Perform fuzzing
-        return self.fuzz_sync(
+        # Perform fuzzing (async)
+        return await self.fuzz_async(
             traversals=traversals,
             pattern=pattern,
             time_delay=time_delay,

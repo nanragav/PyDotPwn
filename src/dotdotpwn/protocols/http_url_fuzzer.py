@@ -404,7 +404,7 @@ class HTTPURLFuzzer:
 
         return variants
 
-    def generate_and_fuzz(
+    async def generate_and_fuzz(
         self,
         pattern: str,
         os_type: OSType = OSType.GENERIC,
@@ -445,8 +445,8 @@ class HTTPURLFuzzer:
             extension=extension
         )
 
-        # Perform fuzzing
-        return self.fuzz_sync(
+        # Perform fuzzing (async)
+        return await self.fuzz_async(
             traversals=traversals,
             pattern=pattern,
             time_delay=time_delay,
