@@ -1,0 +1,56 @@
+# GitHub Pages Configuration for PyDotPwn Documentation
+
+# Site settings
+title: "PyDotPwn"
+description: "Comprehensive Directory Traversal Fuzzer - Complete Documentation"
+baseurl: "/PyDotPwn"
+url: "https://nanragav.github.io"
+
+# Theme settings
+theme: minima
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+  - jekyll-seo-tag
+
+# Navigation
+header_pages:
+  - index.md
+  - getting-started.md
+  - cli-reference.md
+  - gui-guide.md
+  - api-documentation.md
+  - examples.md
+  - troubleshooting.md
+
+# Markdown settings
+markdown: kramdown
+highlighter: rouge
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+
+# Collection settings
+collections:
+  examples:
+    output: true
+    permalink: /:collection/:name/
+
+# SEO settings
+author: "DotDotPwn Team"
+twitter:
+  username: dotdotpwn
+  card: summary
+
+logo: /assets/images/dotdotpwn-logo.png
+
+# Google Analytics (optional)
+# google_analytics: UA-XXXXXXXX-X
+
+# Exclude files
+exclude:
+  - README.md
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor/
