@@ -14,6 +14,16 @@ from pathlib import Path
 src_dir = Path(__file__).parent / "src"
 sys.path.insert(0, str(src_dir))
 
+# Suppress SSL warnings for security testing
+try:
+    from dotdotpwn.utils.ssl_suppression import suppress_ssl_warnings
+except ImportError:
+    # Fallback if the module isn't available
+    import urllib3
+    import warnings
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    warnings.filterwarnings('ignore', message='Unverified HTTPS request')
+
 def main():
     """Main entry point"""
     try:

@@ -5,6 +5,9 @@ This module provides a command-line interface that matches the original dotdotpw
 functionality while leveraging the Python implementation.
 """
 
+# Suppress SSL warnings for security testing
+from .utils.ssl_suppression import suppress_ssl_warnings
+
 import typer
 import asyncio
 import time

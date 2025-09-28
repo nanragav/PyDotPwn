@@ -9,6 +9,15 @@ Handles dependency checks and provides helpful error messages.
 import sys
 import os
 
+# Suppress SSL warnings for security testing
+try:
+    import urllib3
+    import warnings
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    warnings.filterwarnings('ignore', message='Unverified HTTPS request')
+except ImportError:
+    pass
+
 def main():
     """Launch the DotDotPwn GUI application."""
     try:

@@ -7,6 +7,9 @@ Python implementation of the original DotDotPwn HTTP.pm
 Original by chr1x & nitr0us
 """
 
+# Suppress SSL warnings for security testing
+from ..utils.ssl_suppression import suppress_ssl_warnings
+
 import asyncio
 import aiohttp
 import time

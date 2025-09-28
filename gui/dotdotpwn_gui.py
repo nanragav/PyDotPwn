@@ -14,6 +14,15 @@ Features:
 - Cross-platform compatibility
 """
 
+# Suppress SSL warnings for security testing
+try:
+    import urllib3
+    import warnings
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    warnings.filterwarnings('ignore', message='Unverified HTTPS request')
+except ImportError:
+    pass
+
 import sys
 import os
 import json

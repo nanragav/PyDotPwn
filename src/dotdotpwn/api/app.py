@@ -5,6 +5,9 @@ This module provides REST API endpoints for all DotDotPwn functionality
 to enable integration with GUIs and other applications.
 """
 
+# Suppress SSL warnings for security testing
+from ..utils.ssl_suppression import suppress_ssl_warnings
+
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Query, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
