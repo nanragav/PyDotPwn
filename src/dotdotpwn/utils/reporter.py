@@ -399,7 +399,7 @@ class Reporter:
 
     def _get_banner(self) -> str:
         """Get the DotDotPwn banner"""
-        return """
+        return r"""
 #################################################################################
 #                                                                               #
 #  CubilFelino                                                       Chatsubo   #
@@ -410,7 +410,7 @@ class Reporter:
 #                                                                               #
 #  ________            __  ________            __  __________                   #
 #  \______ \    ____ _/  |_\______ \    ____ _/  |_\______   \__  _  __ ____    #
-#   |    |  \  /  _ \\\\   __\|    |  \  /  _ \\\\   __\|     ___/\ \/ \/ //    \   #
+#   |    |  \  /  _ \\   __\|    |  \  /  _ \\   __\|     ___/\ \/ \/ //    \   #
 #   |    `   \(  <_> )|  |  |    `   \(  <_> )|  |  |    |     \     /|   |  \  #
 #  /_______  / \____/ |__| /_______  / \____/ |__|  |____|      \/\_/ |___|  /  #
 #          \/                      \/                                      \/   #
@@ -477,7 +477,8 @@ def generate_traversal_list(
     extra_files: bool = False,
     extension: Optional[str] = None,
     output_file: Optional[str] = None,
-    include_absolute: bool = True
+    include_absolute: bool = True,
+    detection_method: str = "any"
 ) -> List[str]:
     """
     Generate and optionally save traversal list to file (STDOUT module equivalent)
@@ -494,7 +495,7 @@ def generate_traversal_list(
     Returns:
         List of generated traversal strings
     """
-    from ..core.traversal_engine import TraversalEngine, OSType
+    from ..core.traversal_engine import TraversalEngine, OSType, DetectionMethod
     
     # Convert string to OSType enum
     os_type_map = {
@@ -505,6 +506,18 @@ def generate_traversal_list(
     
     os_enum = os_type_map.get(os_type.lower(), OSType.GENERIC)
     
+    # Convert detection_method string to enum
+    detection_method_map = {
+        "simple": DetectionMethod.SIMPLE,
+        "absolute_path": DetectionMethod.ABSOLUTE_PATH,
+        "non_recursive": DetectionMethod.NON_RECURSIVE,
+        "url_encoding": DetectionMethod.URL_ENCODING,
+        "path_validation": DetectionMethod.PATH_VALIDATION,
+        "null_byte": DetectionMethod.NULL_BYTE,
+        "any": DetectionMethod.ANY
+    }
+    detection_method_enum = detection_method_map.get(detection_method.lower(), DetectionMethod.ANY)
+    
     # Generate traversals
     engine = TraversalEngine(quiet=False)
     traversals = engine.generate_traversals(
@@ -513,7 +526,8 @@ def generate_traversal_list(
         specific_file=specific_file,
         extra_files=extra_files,
         extension=extension,
-        include_absolute=include_absolute
+        include_absolute=include_absolute,
+        detection_method=detection_method_enum
     )
     
     # Save to file if specified

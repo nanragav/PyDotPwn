@@ -14,7 +14,7 @@ __version__ = "3.0.2"
 __author__ = "chr1x & nitr0us (Original), AI Assistant (Python Implementation)"
 __license__ = "GPL-3.0-or-later"
 
-from .core.traversal_engine import TraversalEngine, OSType
+from .core.traversal_engine import TraversalEngine, OSType, DetectionMethod
 from .core.fingerprint import Fingerprint
 from .core.bisection_algorithm import BisectionAlgorithm
 from .protocols.http_fuzzer import HTTPFuzzer

