@@ -476,7 +476,8 @@ def generate_traversal_list(
     specific_file: Optional[str] = None,
     extra_files: bool = False,
     extension: Optional[str] = None,
-    output_file: Optional[str] = None
+    output_file: Optional[str] = None,
+    include_absolute: bool = True
 ) -> List[str]:
     """
     Generate and optionally save traversal list to file (STDOUT module equivalent)
@@ -488,6 +489,7 @@ def generate_traversal_list(
         extra_files: Include extra files
         extension: File extension to append
         output_file: File to save traversal list
+        include_absolute: Include direct absolute path injection patterns
         
     Returns:
         List of generated traversal strings
@@ -510,7 +512,8 @@ def generate_traversal_list(
         depth=depth,
         specific_file=specific_file,
         extra_files=extra_files,
-        extension=extension
+        extension=extension,
+        include_absolute=include_absolute
     )
     
     # Save to file if specified

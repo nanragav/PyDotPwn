@@ -89,6 +89,16 @@ def show_examples():
   dotdotpwn --module stdout --depth 8 --os-type unix --file /etc/passwd
   dotdotpwn -m stdout --max-depth 6 --operating-system windows --target-file boot.ini --extension .bak
 
+[bold green]🔧 GENERATE COMMAND EXAMPLES:[/bold green]
+[cyan]Generate patterns for specific targets:[/cyan]
+  dotdotpwn generate --os-type unix --file /etc/passwd --depth 8
+  dotdotpwn generate -f /etc/shadow --os-type unix -d 6 --output patterns.txt
+  dotdotpwn generate --os-type windows --target-file boot.ini --depth 5
+
+[cyan]Generate comprehensive pattern sets:[/cyan]
+  dotdotpwn generate --os-type generic --extra-files --output all-patterns.txt
+  dotdotpwn generate --os-type unix --file config.php --extension .bak
+
 [bold green]⚡ ADVANCED USAGE EXAMPLES:[/bold green]
 [cyan]Comprehensive scanning:[/cyan]
   dotdotpwn -m http -h example.com --os-detection --service-detection --extra-files --bisection
@@ -823,25 +833,51 @@ def start_api(
 
 @app.command("generate")
 def generate_traversals_cmd(
-    os_type: str = typer.Option("generic", help="OS type: windows, unix, generic"),
-    depth: int = typer.Option(6, help="Traversal depth"),
-    specific_file: Optional[str] = typer.Option(None, help="Specific file to target"),
-    extra_files: bool = typer.Option(False, help="Include extra files"),
-    extension: Optional[str] = typer.Option(None, help="File extension to append"),
-    output_file: Optional[str] = typer.Option(None, help="Save to file")
+    os_type: str = typer.Option("generic", "--os-type", "--operating-system", help="🖥️  OS type: windows, unix, generic"),
+    depth: int = typer.Option(6, "--depth", "--max-depth", "-d", help="🔢 Traversal depth (number of ../ repetitions)"),
+    filename: Optional[str] = typer.Option(None, "-f", "--file", "--filename", "--target-file", "--specific-file", help="📄 Specific target file (e.g., /etc/passwd, boot.ini)"),
+    extra_files: bool = typer.Option(False, "--extra-files", "--include-extras", help="📁 Include extra files (config.inc.php, web.config)"),
+    extension: Optional[str] = typer.Option(None, "-e", "--extension", "--file-extension", help="📎 File extension to append to each payload"),
+    output_file: Optional[str] = typer.Option(None, "-o", "--output", "--output-file", help="💾 Save patterns to file"),
+    include_absolute: bool = typer.Option(True, "--absolute/--no-absolute", help="🎯 Include direct absolute path injection patterns")
 ):
-    """Generate traversal patterns"""
+    """🔧 Generate traversal patterns for manual testing or integration with other tools
+    
+    Examples:
+    
+    🐧 Generate UNIX patterns targeting /etc/passwd:
+    dotdotpwn generate --os-type unix --file /etc/passwd --depth 8
+    
+    🖥️  Generate Windows patterns targeting boot.ini:
+    dotdotpwn generate --os-type windows -f boot.ini -d 6
+    
+    🌍 Generate comprehensive patterns for all systems:
+    dotdotpwn generate --os-type generic --extra-files --output patterns.txt
+    
+    📎 Generate patterns with specific extension:
+    dotdotpwn generate -f config.php -e .bak --depth 5
+    """
     traversals = generate_traversal_list(
         os_type=os_type,
         depth=depth,
-        specific_file=specific_file,
+        specific_file=filename,
         extra_files=extra_files,
         extension=extension,
-        output_file=output_file
+        output_file=output_file,
+        include_absolute=include_absolute
     )
     
     if not output_file:
-        console.print(f"\\n[+] Generated {len(traversals)} traversal patterns")
+        console.print(f"\n✅ [green]Generated {len(traversals)} traversal patterns[/green]")
+        if filename:
+            console.print(f"🎯 [cyan]Target file: {filename}[/cyan]")
+        console.print(f"🖥️  [cyan]OS type: {os_type}[/cyan]")
+        console.print(f"🔢 [cyan]Depth: {depth}[/cyan]")
+        if include_absolute:
+            abs_patterns = [p for p in traversals if p.startswith('/') or p.startswith('C:') or p.startswith('\\')]
+            console.print(f"🎯 [yellow]Absolute path patterns: {len(abs_patterns)}[/yellow]")
+    else:
+        console.print(f"✅ [green]Generated {len(traversals)} patterns and saved to {output_file}[/green]")
 
 
 if __name__ == "__main__":

@@ -29,7 +29,7 @@ PyDotPwn uses a modern CLI structure with multiple command modes:
 # Primary scanning interface
 python dotdotpwn.py main [OPTIONS]
 
-# Pattern generation mode
+# Pattern generation mode (NEW!)
 python dotdotpwn.py generate [OPTIONS]
 
 # API server mode
@@ -47,6 +47,175 @@ python dotdotpwn.py help-modules
 python dotdotpwn.py [OPTIONS]
 ```
 
+## 🆕 Generate Command - Pattern Generation
+
+The `generate` command is a powerful new feature that creates traversal patterns without performing actual scans. Perfect for testing, integration, and custom payloads.
+
+### Generate Command Syntax
+
+```bash
+python dotdotpwn.py generate [OPTIONS]
+```
+
+### Generate Parameters
+
+| Parameter | Aliases | Type | Description | Default |
+|-----------|---------|------|-------------|---------|
+| `--os-type` | `-o` | choice | Target OS (unix/windows/generic) | `unix` |
+| `--file` | `-f`, `--filename`, `--target-file`, `--specific-file` | string | Target file to generate patterns for | `/etc/passwd` |
+| `--depth` | `-d`, `--max-depth` | integer | Maximum traversal depth (1-50) | `6` |
+| `--absolute` | `--include-absolute` | flag | Include absolute path patterns | `False` |
+| `--no-absolute` | `--exclude-absolute` | flag | Exclude absolute path patterns | `True` |
+| `--output` | `-o`, `--output-file` | string | Save patterns to file | `stdout` |
+| `--quiet` | `-q` | flag | Suppress progress messages | `False` |
+
+### Generate Examples
+
+```bash
+# Generate UNIX patterns for /etc/passwd with depth 5
+python dotdotpwn.py generate --os-type unix --file /etc/passwd --depth 5
+
+# Generate Windows patterns with absolute paths
+python dotdotpwn.py generate --os-type windows --file "c:\\windows\\system32\\config\\sam" --absolute
+
+# Generate patterns and save to file
+python dotdotpwn.py generate --file /etc/shadow --depth 3 --output patterns.txt --absolute
+
+# Quiet mode for scripting
+python dotdotpwn.py generate --file /etc/passwd --quiet --absolute > payloads.txt
+```
+
+## 🔢 Understanding the Depth Parameter
+
+The **depth parameter** (`-d`, `--depth`, `--max-depth`) is one of the most critical settings in directory traversal testing. It controls how many directory levels the tool traverses upward to reach target files.
+
+### 📊 How Depth Works
+
+```bash
+# Depth 1: Go up 1 directory level
+../etc/passwd
+
+# Depth 2: Go up 2 directory levels  
+../../etc/passwd
+
+# Depth 3: Go up 3 directory levels
+../../../etc/passwd
+
+# Depth 5: Go up 5 directory levels
+../../../../../etc/passwd
+```
+
+### 🏗️ Real-World Directory Structure Examples
+
+#### Web Application Scenarios
+
+```bash
+# Scenario 1: Simple web app
+/var/www/html/index.php
+# To reach /etc/passwd, need depth 3:
+# html -> www -> var -> / (root)
+# Pattern: ../../../etc/passwd
+
+# Scenario 2: WordPress installation
+/var/www/html/wp-content/uploads/file.php  
+# To reach /etc/passwd, need depth 5:
+# uploads -> wp-content -> html -> www -> var -> / (root)
+# Pattern: ../../../../../etc/passwd
+
+# Scenario 3: Deep enterprise application
+/opt/company/apps/web/public/uploads/temp/file.php
+# To reach /etc/passwd, need depth 7:
+# temp -> uploads -> public -> web -> apps -> company -> opt -> / (root)
+# Pattern: ../../../../../../etc/passwd
+```
+
+### 🎯 Choosing the Right Depth
+
+| Application Type | Recommended Depth | Reasoning |
+|------------------|-------------------|-----------|
+| **Simple CGI/PHP** | 1-3 | Usually in `/var/www/html/` |
+| **CMS (WordPress, Drupal)** | 3-6 | Complex directory structures |
+| **Java Web Apps** | 4-8 | Often in `/opt/tomcat/webapps/app/` |
+| **Enterprise Applications** | 6-12 | Deep nested directory structures |
+| **Docker/Container Apps** | 2-5 | Simplified container paths |
+| **Windows IIS** | 2-6 | Typically in `C:\inetpub\wwwroot\` |
+
+### ⚡ Performance vs Coverage Trade-offs
+
+```bash
+# Shallow depth (1-3): Fast but limited coverage
+python dotdotpwn.py -m http -h example.com -f /etc/passwd -d 3
+# Generates: ~890 patterns
+
+# Medium depth (4-6): Balanced approach  
+python dotdotpwn.py -m http -h example.com -f /etc/passwd -d 6
+# Generates: ~1,778 patterns
+
+# Deep depth (7-10): Comprehensive but slower
+python dotdotpwn.py -m http -h example.com -f /etc/passwd -d 10  
+# Generates: ~2,960+ patterns
+
+# Very deep (10+): For complex enterprise environments
+python dotdotpwn.py -m http -h example.com -f /etc/passwd -d 15
+# Generates: 4,400+ patterns
+```
+
+### 🛠️ Advanced Depth Usage
+
+#### Combined with Absolute Paths
+
+```bash
+# Generate both relative and absolute patterns
+python dotdotpwn.py generate --depth 5 --absolute --file /etc/passwd
+# Creates:
+# - Relative: ../../../../../etc/passwd (depth 5)
+# - Absolute: /etc/passwd, %2fetc%2fpasswd, \\etc\\passwd
+```
+
+#### Bisection Algorithm Integration
+
+```bash
+# Use depth with bisection for intelligent testing
+python dotdotpwn.py -m http -h example.com -X -d 8
+# Bisection algorithm uses depth 8 as maximum boundary
+```
+
+### 📈 Pattern Generation Formula
+
+For each depth level, PyDotPwn generates multiple pattern variations:
+
+```
+Total Patterns = (Base Patterns × Depth Range × Encoding Variations) + Absolute Patterns
+
+Where:
+- Base Patterns: ~24 different traversal patterns (../, ..\\, %2e%2e%2f, etc.)
+- Depth Range: 1 to specified depth (e.g., depth 6 = 6 levels)  
+- Encoding Variations: ~20 different URL encoding techniques
+- Absolute Patterns: 144+ direct path injection patterns (if enabled)
+```
+
+### 🔍 Depth Best Practices
+
+1. **Start with Medium Depth (4-6)**: Good balance of coverage and performance
+2. **Increase Gradually**: If no results, try higher depths
+3. **Monitor Performance**: Higher depths generate exponentially more requests
+4. **Use with Absolute Paths**: Combine `--depth` with `--absolute` for maximum coverage
+5. **Consider Target Architecture**: Research the target's likely directory structure
+
+### 💡 Pro Tips
+
+```bash
+# Quick depth testing - try multiple depths
+for depth in 3 5 8; do
+  echo "Testing depth $depth"
+  python dotdotpwn.py generate --depth $depth --file /etc/passwd --quiet | wc -l
+done
+
+# Save patterns by depth for analysis
+python dotdotpwn.py generate --depth 5 --absolute --file /etc/passwd > depth5_patterns.txt
+python dotdotpwn.py generate --depth 10 --absolute --file /etc/passwd > depth10_patterns.txt
+```
+
 ## 🎯 Enhanced Parameter Names
 
 One of the key improvements over the original Perl implementation is support for both traditional short parameters and memorable long parameter names.
@@ -57,10 +226,12 @@ One of the key improvements over the original Perl implementation is support for
 |-------|-------------|------|-------------|---------|
 | `-m` | `--module` | choice | Fuzzing module selection | `-m http` |
 | `-h` | `--host`, `--hostname` | string | Target hostname or IP address | `-h example.com` |
-| `-f` | `--file`, `--filename`, `--target-file` | string | Target file to test for | `-f /etc/passwd` |
+| `-f` | `--file`, `--filename`, `--target-file`, `--specific-file` | string | Target file to test for | `-f /etc/passwd` |
 | `-k` | `--pattern`, `--keyword`, `--match-pattern` | string | Success detection pattern | `-k "root:"` |
-| `-d` | `--depth`, `--max-depth` | integer | Maximum traversal depth | `-d 10` |
+| `-d` | `--depth`, `--max-depth` | integer | Maximum traversal depth (1-50) | `-d 10` |
 | `-x` | `--port` | integer | Target port number | `-x 8080` |
+| | `--absolute`, `--include-absolute` | flag | Include absolute path patterns | `--absolute` |
+| | `--no-absolute`, `--exclude-absolute` | flag | Exclude absolute path patterns | `--no-absolute` |
 
 ### Detection & Intelligence
 

