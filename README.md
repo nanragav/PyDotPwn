@@ -1,4 +1,22 @@
-# 🎯 PyDotPwn - Advanced Directory Traversal Fuzzer
+# 🎯 PyDo## 🚀 Key Features
+
+### 🆕 **Revolutionary Path Validation Bypass** (NEW)
+- **Enterprise-Grade Bypass**: 25,000+ patterns targeting OWASP path validation vulnerabilities
+- **90+ Subdirectory Prefixes**: Real-world paths like `/var/www/images/../../../etc/passwd`
+- **5-Level URL Encoding**: Deep WAF bypass with quintuple encoding (`%252525252f`)
+- **Comprehensive Coverage**: Windows & UNIX path validation bypass patterns
+
+### 🎯 **Core Capabilities**
+- **🎯 Multi-Protocol Support**: HTTP/HTTPS, FTP, TFTP fuzzing capabilities
+- **🔍 Absolute Path Injection**: Comprehensive absolute path traversal detection (144+ patterns)
+- **🖥️ Modern Interface**: Both CLI and GUI interfaces with intuitive controls
+- **⚡ High Performance**: Async/await implementation for efficient testing
+- **📊 Comprehensive Reporting**: Multiple output formats (JSON, CSV, XML, HTML, TXT)
+- **🔧 REST API**: Complete FastAPI integration for automation and toolchain integration
+- **🎯 Smart Pattern Generation**: 36 UNIX + 27 Windows target files with URL encoding variations
+- **🎨 Rich Output**: Beautiful terminal output with colors and progress indicators
+- **🛡️ Smart Detection**: Advanced fingerprinting and bisection algorithms
+- **📐 Flexible Depth Control**: Configurable traversal depth (1-50+ levels) for different directory structuresced Directory Traversal Fuzzer
 
 [![Version](https://img.shields.io/badge/version-3.0.2-green.svg)](https://github.com/nanragav/PyDotPwn)
 [![License](https://img.shields.io/badge/license-GPL--3.0-red.svg)](LICENSE)
@@ -105,7 +123,17 @@ PyDotPwn/
 
 ## 🎯 Enhanced Features Over Original DotDotPwn
 
-### 🆕 Revolutionary Absolute Path Detection
+### 🆕 Revolutionary Path Validation Bypass (EXCLUSIVE)
+
+**The most significant advancement in directory traversal testing since the original tool:**
+
+- **25,000+ Bypass Patterns**: Industry's most comprehensive path validation bypass capability
+- **90+ Real-World Subdirectories**: `/var/www/images/`, `/var/www/uploads/`, `C:\inetpub\wwwroot\uploads\`
+- **5-Level URL Encoding**: Deep WAF bypass (`%2f` → `%252f` → `%25252f` → `%2525252f` → `%252525252f`)
+- **OWASP Vulnerability Coverage**: Targets "File path traversal, validation of start of path" (CWE-22)
+- **Enterprise Evasion**: Bypasses advanced application security controls that validate legitimate path prefixes
+
+### 🚀 Revolutionary Absolute Path Detection
 
 - **144+ Absolute Path Patterns**: Original had ~3, PyDotPwn generates 144+ per target
 - **63 Target Files**: 36 UNIX + 27 Windows critical system files
@@ -138,25 +166,59 @@ PyDotPwn/
 
 ### 📊 Performance Improvements
 
-| Feature | Original DotDotPwn | PyDotPwn |
-|---------|-------------------|----------|
-| **Absolute Path Patterns** | ~3 patterns (0.11%) | 144+ patterns (7.5%) |
-| **Target Files** | ~10 files | 63 files |
-| **URL Encoding** | Basic | 20+ techniques |
-| **OS Support** | Limited Windows | Full Windows + UNIX |
-| **Pattern Generation** | 1,778 total | 1,922+ total |
-| **CLI Usability** | Single parameter names | Multiple aliases |
-| **Output Formats** | Text only | 5 formats |
+| Feature | Original DotDotPwn | PyDotPwn | Improvement |
+|---------|-------------------|----------|-------------|
+| **Total Patterns** | 1,778 patterns | 25,000+ patterns | **1,305% increase** |
+| **Path Validation Bypass** | ❌ Not supported | ✅ 25,000+ patterns | **∞ improvement** |
+| **Absolute Path Patterns** | ~3 patterns (0.11%) | 144+ patterns (7.5%) | **4,700% increase** |
+| **Multi-Level URL Encoding** | Single encoding | 5-level encoding | **500% deeper bypass** |
+| **Target Files** | ~10 files | 63 files | **530% increase** |
+| **Subdirectory Prefixes** | ❌ None | 90+ real-world paths | **New capability** |
+| **WAF Bypass Techniques** | Basic | Advanced encoding | **Enterprise-grade** |
+| **OS Support** | Limited Windows | Full Windows + UNIX | **Complete coverage** |
+| **CLI Usability** | Single parameter names | Multiple aliases | **Developer-friendly** |
+| **Output Formats** | Text only | 5 formats | **Professional reporting** |
+
+### 🎯 Use Cases & Scenarios
+
+#### 🏢 **Enterprise Security Testing**
+```bash
+# Test applications with sophisticated path validation
+python dotdotpwn.py -m http -h enterprise.com -f /etc/passwd --depth 6
+# Generates patterns like: /var/www/images/../../../../../etc/passwd
+```
+
+#### 🛡️ **WAF Bypass Testing**
+```bash
+# Deep encoding bypass for advanced WAFs
+python dotdotpwn.py -m http -h protected.com -f /etc/passwd --depth 3
+# Includes quintuple encoding: %252525252f patterns
+```
+
+#### 🌐 **Modern Web Applications**
+```bash
+# Test applications that validate legitimate path starts
+python dotdotpwn.py -m http -h webapp.com -f /etc/passwd --depth 5
+# Targets: /uploads/../../../etc/passwd, /images/../../../etc/passwd
+```
+
+#### 🔍 **Comprehensive Pattern Generation**
+```bash
+# Generate all 25,000+ patterns for analysis
+python dotdotpwn.py main --module stdout --os-type unix --file "/etc/passwd" --depth 3
+```
 
 ### 🔍 Security Enhancement
 
 PyDotPwn addresses critical gaps in the original implementation:
 
-1. **Absolute Path Blind Spot**: Original missed 99.89% of absolute path attacks
-2. **Limited Target Coverage**: Expanded from ~10 to 63 critical system files
-3. **Filter Bypass**: Advanced URL encoding for WAF evasion
-4. **Cross-Platform**: Complete Windows support alongside UNIX
-5. **Modern Attack Vectors**: Techniques discovered since original development
+1. **Path Validation Blind Spot**: NEW - Targets applications that validate path prefixes
+2. **Absolute Path Blind Spot**: Original missed 99.89% of absolute path attacks
+3. **Limited Target Coverage**: Expanded from ~10 to 63 critical system files
+4. **Filter Bypass**: Advanced 5-level URL encoding for sophisticated WAF evasion
+5. **Cross-Platform**: Complete Windows support alongside UNIX
+6. **Modern Attack Vectors**: Techniques discovered since original development
+7. **Enterprise Environments**: Real-world subdirectory patterns from actual deployments
 
 ## 🛠️ Development
 
