@@ -27,6 +27,7 @@ from .protocols.ftp_fuzzer import FTPFuzzer
 from .protocols.tftp_fuzzer import TFTPFuzzer
 from .protocols.payload_fuzzer import PayloadFuzzer
 from .utils.reporter import Reporter, generate_traversal_list
+from .utils.console_helper import console as safe_console
 
 app = typer.Typer(
     name="dotdotpwn",
@@ -34,7 +35,7 @@ app = typer.Typer(
     add_completion=False,
     rich_markup_mode="rich"
 )
-console = Console()
+console = safe_console
 
 
 @app.command("help-examples")
@@ -99,7 +100,7 @@ def show_examples():
   dotdotpwn generate --os-type generic --extra-files --output all-patterns.txt
   dotdotpwn generate --os-type unix --file config.php --extension .bak
 
-[bold green]⚡ ADVANCED USAGE EXAMPLES:[/bold green]
+[bold green][!] ADVANCED USAGE EXAMPLES:[/bold green]
 [cyan]Comprehensive scanning:[/cyan]
   dotdotpwn -m http -h example.com --os-detection --service-detection --extra-files --bisection
   dotdotpwn --module http --host target.com --detect-os --banner-grab --include-extras --binary-search
@@ -212,7 +213,7 @@ Patterns help identify successful traversal attempts:
   • "<!DOCTYPE" - HTML documents
   • "[fontpath]" - Unix configuration files
 
-[bold yellow]🎯 OS DETECTION:[/bold yellow]
+[bold yellow][*] OS DETECTION:[/bold yellow]
 Intelligent fuzzing based on detected operating system:
   • [bold]Windows:[/bold] Targets boot.ini, win.ini, hosts file
   • [bold]Unix/Linux:[/bold] Targets /etc/passwd, /etc/issue
@@ -258,7 +259,7 @@ def print_banner():
 @app.command()
 def main(
     # Core Options - Both short and long parameter names for better usability
-    module: str = typer.Option(..., "-m", "--module", help="🎯 Fuzzing module [http | http-url | ftp | tftp | payload | stdout]"),
+    module: str = typer.Option(..., "-m", "--module", help="[*] Fuzzing module [http | http-url | ftp | tftp | payload | stdout]"),
     host: Optional[str] = typer.Option(None, "-h", "--host", "--hostname", help="🌐 Target hostname or IP address"),
     
     # Detection & Intelligence Options
@@ -279,7 +280,7 @@ def main(
     method: str = typer.Option("GET", "-M", "--method", "--http-method", help="📤 HTTP request method [GET | POST | HEAD | COPY | MOVE]"),
     
     # Pattern Matching & Detection
-    pattern: Optional[str] = typer.Option(None, "-k", "--pattern", "--keyword", "--match-pattern", help="🎯 Text pattern to detect vulnerability (e.g., 'root:', 'Administrator')"),
+    pattern: Optional[str] = typer.Option(None, "-k", "--pattern", "--keyword", "--match-pattern", help="[*] Text pattern to detect vulnerability (e.g., 'root:', 'Administrator')"),
     
     # Authentication
     username: str = typer.Option("anonymous", "-U", "--username", "--user", help="👤 Authentication username (default: anonymous)"),
