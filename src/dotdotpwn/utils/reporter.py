@@ -520,7 +520,7 @@ def generate_traversal_list(
     if output_file:
         with open(output_file, 'w', encoding='utf-8') as f:
             for traversal in traversals:
-                f.write(traversal + '\\n')
+                f.write(traversal + '\n')
         print(f"[+] Traversal list saved to: {output_file}")
     
     # Print to stdout
