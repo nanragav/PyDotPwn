@@ -1,4 +1,4 @@
-# 🎯 PyDo## 🚀 Key Features
+# 🎯 PyDotPwn 🚀 Key Features
 
 ### 🆕 **Revolutionary Path Validation Bypass** (NEW)
 - **Enterprise-Grade Bypass**: 25,000+ patterns targeting OWASP path validation vulnerabilities
