@@ -95,7 +95,6 @@ class ScanConfiguration:
     bisection: bool = False
     output_format: str = "text"
     output_file: str = ""
-    detection_method: str = "any"  # New detection method parameter
 
 
 class OutputHighlighter(QSyntaxHighlighter):
@@ -235,56 +234,38 @@ class ScanWorker(QThread):
             self.progress_updated.emit(10, "Starting scan...")
             
             # Start process
-            import os
             self.process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
                 bufsize=1,
-                universal_newlines=True,
-                preexec_fn=os.setsid if hasattr(os, 'setsid') else None  # Create new process group on Unix
+                universal_newlines=True
             )
             
             self.is_running = True
             self.progress_updated.emit(20, "Scan in progress...")
             
             # Read output line by line
-            while self.is_running and self.process.poll() is None:
-                try:
-                    line = self.process.stdout.readline()
-                    if not line:  # EOF
-                        break
-                    
-                    if not self.is_running:
-                        break
-                    
-                    self.output_ready.emit(line.rstrip())
-                    
-                    # Update progress based on output
-                    if "Creating Traversal patterns" in line:
-                        self.progress_updated.emit(40, "Creating traversal patterns...")
-                    elif "Multiplying" in line:
-                        self.progress_updated.emit(60, "Multiplying patterns...")
-                    elif "DONE" in line:
-                        self.progress_updated.emit(80, "Pattern generation complete...")
-                        
-                except Exception:
+            for line in iter(self.process.stdout.readline, ''):
+                if not self.is_running:
                     break
+                
+                self.output_ready.emit(line.rstrip())
+                
+                # Update progress based on output
+                if "Creating Traversal patterns" in line:
+                    self.progress_updated.emit(40, "Creating traversal patterns...")
+                elif "Multiplying" in line:
+                    self.progress_updated.emit(60, "Multiplying patterns...")
+                elif "DONE" in line:
+                    self.progress_updated.emit(80, "Pattern generation complete...")
             
-            # Handle process termination
-            if self.is_running:
-                # Normal completion
-                return_code = self.process.wait()
-                self.progress_updated.emit(100, "Scan completed")
-                finish_message = "Scan completed successfully" if return_code == 0 else "Scan failed"
-            else:
-                # Scan was stopped
-                return_code = -1
-                self.progress_updated.emit(0, "Scan stopped")
-                finish_message = "Scan stopped by user"
+            # Wait for process to finish
+            return_code = self.process.wait()
+            self.progress_updated.emit(100, "Scan completed")
             
-            self.scan_finished.emit(return_code, finish_message)
+            self.scan_finished.emit(return_code, "Scan completed successfully" if return_code == 0 else "Scan failed")
             
         except Exception as e:
             self.scan_finished.emit(-1, f"Error running scan: {str(e)}")
@@ -311,9 +292,6 @@ class ScanWorker(QThread):
             if self.config.extension:
                 cmd.extend(["--extension", self.config.extension])
             
-            if self.config.detection_method != "any":
-                cmd.extend(["--detection-method", self.config.detection_method])
-            
             if self.config.output_file:
                 cmd.extend(["--output-file", self.config.output_file])
         
@@ -339,9 +317,6 @@ class ScanWorker(QThread):
             
             cmd.extend(["--depth", str(self.config.depth)])
             cmd.extend(["--os-type", self.config.os_type])
-            
-            if self.config.detection_method != "any":
-                cmd.extend(["--detection-method", self.config.detection_method])
             
             if self.config.use_ssl:
                 cmd.append("--ssl")
@@ -399,29 +374,10 @@ class ScanWorker(QThread):
         self.is_running = False
         if self.process:
             try:
-                # Try graceful termination first
                 self.process.terminate()
-                try:
-                    # Wait a short time for graceful shutdown
-                    self.process.wait(timeout=2)
-                except subprocess.TimeoutExpired:
-                    # Force kill if graceful termination failed
-                    self.process.kill()
-                    try:
-                        self.process.wait(timeout=3)
-                    except subprocess.TimeoutExpired:
-                        # Final fallback - force kill process group
-                        import os
-                        import signal
-                        try:
-                            os.killpg(os.getpgid(self.process.pid), signal.SIGKILL)
-                        except (OSError, ProcessLookupError):
-                            pass
-            except (OSError, ProcessLookupError):
-                # Process already terminated
-                pass
-            finally:
-                self.process = None
+                self.process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
 
 
 class DotDotPwnGUI(QMainWindow):
@@ -459,7 +415,6 @@ class DotDotPwnGUI(QMainWindow):
         
         # Trigger initial module change to set proper field states
         self.on_module_changed(self.module_combo.currentText())
-        self.on_detection_method_changed(self.detection_method_combo.currentText())
         
         # Set window properties
         self.setWindowTitle("DotDotPwn GUI - Directory Traversal Fuzzer")
@@ -647,29 +602,6 @@ class DotDotPwnGUI(QMainWindow):
         self.depth_spin.setRange(1, 20)
         self.depth_spin.setValue(6)
         layout.addRow("Depth:", self.depth_spin)
-        
-        # Detection Method
-        self.detection_method_combo = QComboBox()
-        self.detection_method_combo.addItems([
-            "any", "simple", "absolute_path", "non_recursive", 
-            "url_encoding", "path_validation", "null_byte"
-        ])
-        self.detection_method_combo.setCurrentText("any")
-        self.detection_method_combo.setToolTip("Detection method for IDS evasion:\n"
-                                              "• any: All methods (1.9M payloads - may trigger IDS)\n"
-                                              "• simple: Basic traversal (24 payloads - ultra stealth)\n"
-                                              "• url_encoding: URL encoded (30 payloads - ultra stealth)\n"
-                                              "• non_recursive: Filter bypass (71 payloads - stealth)\n"
-                                              "• absolute_path: Direct paths (23K payloads - moderate)\n"
-                                              "• null_byte: Extension bypass (75K payloads - high volume)\n"
-                                              "• path_validation: Validation bypass (1.7M payloads - very high)")
-        self.detection_method_combo.currentTextChanged.connect(self.on_detection_method_changed)
-        layout.addRow("Detection Method:", self.detection_method_combo)
-        
-        # Stealth indicator
-        self.stealth_indicator = QLabel("🔴 HIGH VOLUME (may trigger IDS)")
-        self.stealth_indicator.setStyleSheet("QLabel { color: red; font-weight: bold; }")
-        layout.addRow("Traffic Level:", self.stealth_indicator)
         
         return group
     
@@ -1154,23 +1086,6 @@ class DotDotPwnGUI(QMainWindow):
         else:
             self.status_label.setText("Scan Mode")
     
-    def on_detection_method_changed(self, method):
-        """Handle detection method change and update stealth indicator"""
-        stealth_levels = {
-            "simple": ("🟢 ULTRA STEALTH", "green", "24 payloads"),
-            "url_encoding": ("🟢 ULTRA STEALTH", "green", "30 payloads"),
-            "non_recursive": ("🟢 STEALTH", "green", "71 payloads"),
-            "absolute_path": ("🟡 MODERATE", "orange", "23K payloads"),
-            "null_byte": ("🟠 HIGH VOLUME", "darkorange", "75K payloads"),
-            "path_validation": ("🔴 VERY HIGH", "red", "1.7M payloads"),
-            "any": ("🔴 IDS TRIGGER", "red", "1.9M payloads")
-        }
-        
-        if method in stealth_levels:
-            indicator, color, count = stealth_levels[method]
-            self.stealth_indicator.setText(f"{indicator} ({count})")
-            self.stealth_indicator.setStyleSheet(f"QLabel {{ color: {color}; font-weight: bold; }}")
-    
     def load_webapp_preset(self):
         """Load web application preset"""
         self.module_combo.setCurrentText("http")
@@ -1234,7 +1149,6 @@ class DotDotPwnGUI(QMainWindow):
         config.bisection = self.bisection_check.isChecked()
         config.output_format = self.format_combo.currentText()
         config.output_file = self.output_edit.text()
-        config.detection_method = self.detection_method_combo.currentText()
         
         return config
     
@@ -1306,33 +1220,9 @@ class DotDotPwnGUI(QMainWindow):
     
     def stop_scan(self):
         """Stop the running scan"""
-        if self.scan_worker and self.scan_worker.isRunning():
-            # Update UI immediately to show stopping state
-            self.stop_button.setEnabled(False)
-            self.start_button.setEnabled(False)
-            self.status_label.setText("🛑 Stopping scan...")
-            self.progress_label.setText("Terminating scan process...")
-            
-            # Stop the worker thread
+        if self.scan_worker:
             self.scan_worker.stop_scan()
-            
-            # Force terminate the thread if it doesn't stop gracefully
-            if not self.scan_worker.wait(3000):  # Wait 3 seconds
-                self.scan_worker.terminate()
-                if not self.scan_worker.wait(2000):  # Wait 2 more seconds
-                    # Force kill if still running
-                    try:
-                        self.scan_worker.quit()
-                    except:
-                        pass
-            
-            # Reset UI state
-            self.on_scan_finished(-1, "Scan stopped by user")
-        else:
-            # No scan running, just update UI
-            self.start_button.setEnabled(True)
-            self.stop_button.setEnabled(False)
-            self.status_label.setText("Ready")
+            self.status_label.setText("Stopping scan...")
     
     def on_scan_started(self):
         """Handle scan started event"""

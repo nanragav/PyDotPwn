@@ -19,7 +19,7 @@ from typing import Optional, List
 from pathlib import Path
 import sys
 
-from .core.traversal_engine import TraversalEngine, OSType, DetectionMethod
+from .core.traversal_engine import TraversalEngine, OSType
 from .core.fingerprint import Fingerprint
 from .protocols.http_fuzzer import HTTPFuzzer
 from .protocols.http_url_fuzzer import HTTPURLFuzzer
@@ -272,7 +272,6 @@ def main(
     filename: Optional[str] = typer.Option(None, "-f", "--file", "--filename", "--target-file", help="📄 Specific target file (e.g., /etc/passwd, boot.ini)"),
     extra_files: bool = typer.Option(False, "-E", "--extra-files", "--include-extras", help="📁 Include extra common files (web.config, httpd.conf, etc.)"),
     extension: Optional[str] = typer.Option(None, "-e", "--extension", "--file-extension", help="📎 File extension to append to each payload"),
-    detection_method: str = typer.Option("any", "-D", "--detection-method", "--method-type", help="🎯 Detection method [simple | absolute_path | non_recursive | url_encoding | path_validation | null_byte | any] (default: any)"),
     
     # Network & Protocol Options
     ssl: bool = typer.Option(False, "-S", "--ssl", "--https", "--tls", help="🔒 Use SSL/TLS encryption (HTTPS/FTPS)"),
@@ -332,13 +331,6 @@ def main(
     📄 STDOUT Module (Generate patterns only):
       dotdotpwn --module stdout --depth 8 --os-type unix --file /etc/passwd
       dotdotpwn -m stdout -d 6 --operating-system windows --target-file boot.ini --file-extension .bak
-    
-    🎯 Detection Method Examples (IDS/IPS Evasion):
-      dotdotpwn -m http -h example.com --detection-method simple --pattern "root:"
-      dotdotpwn -m http -h example.com -D absolute_path --pattern "root:"
-      dotdotpwn -m http -h example.com -D null_byte --pattern "root:"
-      dotdotpwn -m http -h example.com --detection-method path_validation --pattern "root:"
-      dotdotpwn -m stdout --detection-method url_encoding --file /etc/passwd
     
     🔍 Advanced Options:
       dotdotpwn -m http -h example.com --bisection --os-detection --service-detection --extra-files
@@ -401,11 +393,6 @@ def main(
         if method.upper() not in valid_methods:
             validation_errors.append(f"❌ Invalid HTTP method '{method}'. Valid options: {', '.join(valid_methods)}")
         
-        # Detection method validation
-        valid_detection_methods = ["simple", "absolute_path", "non_recursive", "url_encoding", "path_validation", "null_byte", "any"]
-        if detection_method.lower() not in valid_detection_methods:
-            validation_errors.append(f"❌ Invalid detection method '{detection_method}'. Valid options: {', '.join(valid_detection_methods)}")
-        
         # If validation errors exist, display them and exit
         if validation_errors:
             console.print("\n[red bold]🚨 Configuration Errors Found:[/red bold]")
@@ -427,7 +414,7 @@ def main(
     try:
         # Handle stdout module (generate traversals only)
         if module == "stdout":
-            handle_stdout_module(os_type, depth, filename, extra_files, extension, quiet, detection_method_enum)
+            handle_stdout_module(os_type, depth, filename, extra_files, extension, quiet)
             return
 
         # Set default ports with smart defaults
@@ -496,18 +483,6 @@ def main(
         # Convert os_type string to enum
         os_type_map = {"windows": OSType.WINDOWS, "unix": OSType.UNIX, "generic": OSType.GENERIC}
         os_enum = os_type_map.get(os_type.lower() if os_type else "generic", OSType.GENERIC)
-        
-        # Convert detection_method string to enum
-        detection_method_map = {
-            "simple": DetectionMethod.SIMPLE,
-            "absolute_path": DetectionMethod.ABSOLUTE_PATH,
-            "non_recursive": DetectionMethod.NON_RECURSIVE,
-            "url_encoding": DetectionMethod.URL_ENCODING,
-            "path_validation": DetectionMethod.PATH_VALIDATION,
-            "null_byte": DetectionMethod.NULL_BYTE,
-            "any": DetectionMethod.ANY
-        }
-        detection_method_enum = detection_method_map.get(detection_method.lower(), DetectionMethod.ANY)
 
         # Enhanced scan configuration
         scan_config = {
@@ -541,7 +516,7 @@ def main(
                 results = run_http_scan(
                     host, port, ssl, method, os_enum, depth, filename, extra_files,
                     extension, pattern, time_delay, break_on_first, continue_on_error,
-                    bisection, quiet, detection_method_enum
+                    bisection, quiet
                 )
             except Exception as e:
                 console.print(f"\n💥 [red]Scan error: {str(e)}[/red]")
@@ -554,8 +529,7 @@ def main(
             try:
                 results = run_http_url_scan(
                     url, pattern, os_enum, depth, filename, extra_files, extension,
-                    time_delay, break_on_first, continue_on_error, bisection, quiet,
-                    detection_method_enum
+                    time_delay, break_on_first, continue_on_error, bisection, quiet
                 )
             except Exception as e:
                 console.print(f"\n💥 [red]Scan error: {str(e)}[/red]")
@@ -569,7 +543,7 @@ def main(
                 results = run_ftp_scan(
                     host, port, username, password, os_enum, depth, filename,
                     extra_files, extension, time_delay, break_on_first,
-                    continue_on_error, bisection, quiet, detection_method_enum
+                    continue_on_error, bisection, quiet
                 )
             except Exception as e:
                 console.print(f"\n💥 [red]Scan error: {str(e)}[/red]")
@@ -582,8 +556,7 @@ def main(
             try:
                 results = run_tftp_scan(
                     host, port, os_enum, depth, filename, extra_files, extension,
-                    time_delay, break_on_first, continue_on_error, bisection, quiet,
-                    detection_method_enum
+                    time_delay, break_on_first, continue_on_error, bisection, quiet
                 )
             except Exception as e:
                 console.print(f"\n💥 [red]Scan error: {str(e)}[/red]")
@@ -598,7 +571,7 @@ def main(
                 results = run_payload_scan(
                     host, port, payload_content, ssl, pattern, os_enum, depth,
                     filename, extra_files, extension, time_delay, break_on_first,
-                    continue_on_error, bisection, quiet, detection_method_enum
+                    continue_on_error, bisection, quiet
                 )
             except Exception as e:
                 console.print(f"\n💥 [red]Scan error: {str(e)}[/red]")
@@ -665,15 +638,14 @@ def main(
         raise typer.Exit(1)
 
 
-def handle_stdout_module(os_type, depth, filename, extra_files, extension, quiet, detection_method_enum):
+def handle_stdout_module(os_type, depth, filename, extra_files, extension, quiet):
     """Handle stdout module - generate traversals only"""
     generate_traversal_list(
         os_type=os_type or "generic",
         depth=depth,
         specific_file=filename,
         extra_files=extra_files,
-        extension=extension,
-        detection_method=detection_method_enum.value
+        extension=extension
     )
 
 
@@ -699,7 +671,7 @@ def print_target_info(target_info, scan_config):
 
 def run_http_scan(host, port, ssl, method, os_enum, depth, filename, extra_files,
                   extension, pattern, time_delay, break_on_first, continue_on_error,
-                  bisection, quiet, detection_method_enum):
+                  bisection, quiet):
     """Run HTTP directory traversal scan"""
     fuzzer = HTTPFuzzer(
         host=host,
@@ -719,14 +691,13 @@ def run_http_scan(host, port, ssl, method, os_enum, depth, filename, extra_files
         time_delay=time_delay,
         break_on_first=break_on_first,
         continue_on_error=continue_on_error,
-        bisection=bisection,
-        detection_method=detection_method_enum
+        bisection=bisection
     ))
 
 
 def run_http_url_scan(url, pattern, os_enum, depth, filename, extra_files,
                       extension, time_delay, break_on_first, continue_on_error,
-                      bisection, quiet, detection_method_enum):
+                      bisection, quiet):
     """Run HTTP URL directory traversal scan"""
     fuzzer = HTTPURLFuzzer(base_url=url, quiet=quiet)
     
@@ -740,14 +711,13 @@ def run_http_url_scan(url, pattern, os_enum, depth, filename, extra_files,
         time_delay=time_delay,
         break_on_first=break_on_first,
         continue_on_error=continue_on_error,
-        bisection=bisection,
-        detection_method=detection_method_enum
+        bisection=bisection
     ))
 
 
 def run_ftp_scan(host, port, username, password, os_enum, depth, filename,
                  extra_files, extension, time_delay, break_on_first,
-                 continue_on_error, bisection, quiet, detection_method_enum):
+                 continue_on_error, bisection, quiet):
     """Run FTP directory traversal scan"""
     fuzzer = FTPFuzzer(
         host=host,
@@ -766,14 +736,12 @@ def run_ftp_scan(host, port, username, password, os_enum, depth, filename,
         time_delay=time_delay,
         break_on_first=break_on_first,
         continue_on_error=continue_on_error,
-        bisection=bisection,
-        detection_method=detection_method_enum
+        bisection=bisection
     )
 
 
 def run_tftp_scan(host, port, os_enum, depth, filename, extra_files, extension,
-                  time_delay, break_on_first, continue_on_error, bisection, quiet,
-                  detection_method_enum):
+                  time_delay, break_on_first, continue_on_error, bisection, quiet):
     """Run TFTP directory traversal scan"""
     fuzzer = TFTPFuzzer(host=host, port=port, quiet=quiet)
     
@@ -786,14 +754,13 @@ def run_tftp_scan(host, port, os_enum, depth, filename, extra_files, extension,
         time_delay=time_delay,
         break_on_first=break_on_first,
         continue_on_error=continue_on_error,
-        bisection=bisection,
-        detection_method=detection_method_enum
+        bisection=bisection
     )
 
 
 def run_payload_scan(host, port, payload_content, ssl, pattern, os_enum, depth,
                      filename, extra_files, extension, time_delay, break_on_first,
-                     continue_on_error, bisection, quiet, detection_method_enum):
+                     continue_on_error, bisection, quiet):
     """Run payload-based directory traversal scan"""
     fuzzer = PayloadFuzzer(
         host=host,
@@ -813,8 +780,7 @@ def run_payload_scan(host, port, payload_content, ssl, pattern, os_enum, depth,
         time_delay=time_delay,
         break_on_first=break_on_first,
         continue_on_error=continue_on_error,
-        bisection=bisection,
-        detection_method=detection_method_enum
+        bisection=bisection
     )
 
 
@@ -871,7 +837,6 @@ def generate_traversals_cmd(
     os_type: str = typer.Option("generic", "--os-type", "--operating-system", help="🖥️  OS type: windows, unix, generic"),
     depth: int = typer.Option(6, "--depth", "--max-depth", "-d", help="🔢 Traversal depth (number of ../ repetitions)"),
     filename: Optional[str] = typer.Option(None, "-f", "--file", "--filename", "--target-file", "--specific-file", help="📄 Specific target file (e.g., /etc/passwd, boot.ini)"),
-    detection_method: str = typer.Option("any", "-D", "--detection-method", help="🛡️  Detection method for IDS evasion: simple, absolute_path, non_recursive, url_encoding, path_validation, null_byte, any"),
     extra_files: bool = typer.Option(False, "--extra-files", "--include-extras", help="📁 Include extra files (config.inc.php, web.config)"),
     extension: Optional[str] = typer.Option(None, "-e", "--extension", "--file-extension", help="📎 File extension to append to each payload"),
     output_file: Optional[str] = typer.Option(None, "-o", "--output", "--output-file", help="💾 Save patterns to file"),
@@ -884,13 +849,7 @@ def generate_traversals_cmd(
     🐧 Generate UNIX patterns targeting /etc/passwd:
     dotdotpwn generate --os-type unix --file /etc/passwd --depth 8
     
-    �️  Generate stealth patterns (24 payloads):
-    dotdotpwn generate --detection-method simple --file /etc/passwd
-    
-    🔐 Generate URL encoding bypass patterns (30 payloads):
-    dotdotpwn generate --detection-method url_encoding --file /etc/passwd
-    
-    �🖥️  Generate Windows patterns targeting boot.ini:
+    🖥️  Generate Windows patterns targeting boot.ini:
     dotdotpwn generate --os-type windows -f boot.ini -d 6
     
     🌍 Generate comprehensive patterns for all systems:
@@ -899,18 +858,10 @@ def generate_traversals_cmd(
     📎 Generate patterns with specific extension:
     dotdotpwn generate -f config.php -e .bak --depth 5
     """
-    # Validate detection method
-    valid_methods = ["simple", "absolute_path", "non_recursive", "url_encoding", "path_validation", "null_byte", "any"]
-    if detection_method not in valid_methods:
-        console.print(f"❌ [red]Invalid detection method: {detection_method}[/red]")
-        console.print(f"✅ [cyan]Valid methods: {', '.join(valid_methods)}[/cyan]")
-        raise typer.Exit(1)
-    
     traversals = generate_traversal_list(
         os_type=os_type,
         depth=depth,
         specific_file=filename,
-        detection_method=detection_method,
         extra_files=extra_files,
         extension=extension,
         output_file=output_file,
@@ -923,7 +874,6 @@ def generate_traversals_cmd(
             console.print(f"🎯 [cyan]Target file: {filename}[/cyan]")
         console.print(f"🖥️  [cyan]OS type: {os_type}[/cyan]")
         console.print(f"🔢 [cyan]Depth: {depth}[/cyan]")
-        console.print(f"🛡️  [cyan]Detection method: {detection_method}[/cyan]")
         if include_absolute:
             abs_patterns = [p for p in traversals if p.startswith('/') or p.startswith('C:') or p.startswith('\\')]
             console.print(f"🎯 [yellow]Absolute path patterns: {len(abs_patterns)}[/yellow]")

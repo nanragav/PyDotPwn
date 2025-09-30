@@ -1,22 +1,12 @@
 # 🎯 PyDo## 🚀 Key Features
 
 ### 🆕 **Revolutionary Path Validation Bypass** (NEW)
-
 - **Enterprise-Grade Bypass**: 25,000+ patterns targeting OWASP path validation vulnerabilities
 - **90+ Subdirectory Prefixes**: Real-world paths like `/var/www/images/../../../etc/passwd`
 - **5-Level URL Encoding**: Deep WAF bypass with quintuple encoding (`%252525252f`)
 - **Comprehensive Coverage**: Windows & UNIX path validation bypass patterns
 
-### 🛡️ **IDS/IPS Evasion Through Detection Methods** (NEW)
-
-- **Targeted Payload Generation**: Choose specific attack methods to avoid triggering security systems
-- **Traffic Volume Control**: Reduce payload count from 1.9M+ to as low as 24 patterns
-- **7 Detection Methods**: Simple (24 payloads), URL encoding (30), Non-recursive (71), Absolute path (23K), Null byte (75K), Path validation (1.7M), Any (1.9M)
-- **Stealth Reconnaissance**: Ultra-low traffic modes for evading IDS/IPS detection
-- **Flexible Targeting**: Choose method based on security posture and testing requirements
-
 ### 🎯 **Core Capabilities**
-
 - **🎯 Multi-Protocol Support**: HTTP/HTTPS, FTP, TFTP fuzzing capabilities
 - **🔍 Absolute Path Injection**: Comprehensive absolute path traversal detection (144+ patterns)
 - **🖥️ Modern Interface**: Both CLI and GUI interfaces with intuitive controls
@@ -67,41 +57,18 @@ chmod +x dotdotpwn.py
 ### Basic Usage
 
 ```bash
-# HTTP fuzzing with IDS evasion (ultra stealth - 24 payloads)
-python dotdotpwn.py -m http -h example.com -D simple -f /etc/passwd
+# HTTP fuzzing with absolute path detection
+python dotdotpwn.py -m http -h example.com -x 8080 -f /etc/passwd
 
-# URL encoding bypass (30 payloads)
-python dotdotpwn.py -m http -h example.com -D url_encoding -f /etc/passwd
+# Generate traversal patterns with specific depth
+python dotdotpwn.py generate --os-type unix --file /etc/passwd --depth 5 --absolute
 
-# Path validation bypass for complex security controls
-python dotdotpwn.py -m http -h example.com -D path_validation -f /etc/passwd
+# FTP fuzzing with Windows targets
+python dotdotpwn.py -m ftp -h ftp.example.com -f "c:\windows\system32\config\sam" -d 3
 
-# Traditional mode with all methods (1.9M payloads - may trigger IDS)
-python dotdotpwn.py -m http -h example.com -D any -f /etc/passwd
-
-# Generate traversal patterns with specific detection method
-python dotdotpwn.py generate --os-type unix --file /etc/passwd --detection-method simple
-
-# FTP fuzzing with stealth mode
-python dotdotpwn.py -m ftp -h ftp.example.com -D non_recursive -f "c:\windows\system32\config\sam"
-
-# GUI interface with detection method selection
+# GUI interface with enhanced pattern generation
 python launch_gui.py
 ```
-
-### 🛡️ Detection Methods for IDS Evasion
-
-Choose your attack method based on target security posture:
-
-| Method            | Payloads | Traffic Level    | Use Case                          |
-| ----------------- | -------- | ---------------- | --------------------------------- |
-| `simple`          | 24       | 🟢 Ultra Stealth | Basic recon, evade all monitoring |
-| `url_encoding`    | 30       | 🟢 Ultra Stealth | WAF bypass, filter evasion        |
-| `non_recursive`   | 71       | 🟢 Stealth       | Non-recursive filter bypass       |
-| `absolute_path`   | 23K      | 🟡 Moderate      | Direct path injection             |
-| `null_byte`       | 75K      | 🟠 High Volume   | Extension validation bypass       |
-| `path_validation` | 1.7M     | 🔴 Very High     | Complex validation bypass         |
-| `any`             | 1.9M     | 🔴 IDS Trigger   | Comprehensive testing             |
 
 ### 🔍 Understanding the Depth Parameter
 
@@ -109,19 +76,17 @@ The **depth parameter** controls how many directory levels the tool traverses up
 
 ```bash
 # Depth 1: ../etc/passwd (go up 1 level)
-# Depth 2: ../../etc/passwd (go up 2 levels)
+# Depth 2: ../../etc/passwd (go up 2 levels)  
 # Depth 3: ../../../etc/passwd (go up 3 levels)
 ```
 
 **Real-world example:**
-
 - Web app location: `/var/www/html/app/uploads/`
 - Target file: `/etc/passwd`
 - Required depth: 5 (uploads→app→html→www→var→root)
 - Generated payload: `../../../../../etc/passwd`
 
 **Recommended depths:**
-
 - **Depth 3-6**: Most web applications
 - **Depth 1-3**: Simple directory structures
 - **Depth 6-10**: Deep nested applications
@@ -201,23 +166,22 @@ PyDotPwn/
 
 ### 📊 Performance Improvements
 
-| Feature                      | Original DotDotPwn     | PyDotPwn             | Improvement                |
-| ---------------------------- | ---------------------- | -------------------- | -------------------------- |
-| **Total Patterns**           | 1,778 patterns         | 25,000+ patterns     | **1,305% increase**        |
-| **Path Validation Bypass**   | ❌ Not supported       | ✅ 25,000+ patterns  | **∞ improvement**          |
-| **Absolute Path Patterns**   | ~3 patterns (0.11%)    | 144+ patterns (7.5%) | **4,700% increase**        |
-| **Multi-Level URL Encoding** | Single encoding        | 5-level encoding     | **500% deeper bypass**     |
-| **Target Files**             | ~10 files              | 63 files             | **530% increase**          |
-| **Subdirectory Prefixes**    | ❌ None                | 90+ real-world paths | **New capability**         |
-| **WAF Bypass Techniques**    | Basic                  | Advanced encoding    | **Enterprise-grade**       |
-| **OS Support**               | Limited Windows        | Full Windows + UNIX  | **Complete coverage**      |
-| **CLI Usability**            | Single parameter names | Multiple aliases     | **Developer-friendly**     |
-| **Output Formats**           | Text only              | 5 formats            | **Professional reporting** |
+| Feature | Original DotDotPwn | PyDotPwn | Improvement |
+|---------|-------------------|----------|-------------|
+| **Total Patterns** | 1,778 patterns | 25,000+ patterns | **1,305% increase** |
+| **Path Validation Bypass** | ❌ Not supported | ✅ 25,000+ patterns | **∞ improvement** |
+| **Absolute Path Patterns** | ~3 patterns (0.11%) | 144+ patterns (7.5%) | **4,700% increase** |
+| **Multi-Level URL Encoding** | Single encoding | 5-level encoding | **500% deeper bypass** |
+| **Target Files** | ~10 files | 63 files | **530% increase** |
+| **Subdirectory Prefixes** | ❌ None | 90+ real-world paths | **New capability** |
+| **WAF Bypass Techniques** | Basic | Advanced encoding | **Enterprise-grade** |
+| **OS Support** | Limited Windows | Full Windows + UNIX | **Complete coverage** |
+| **CLI Usability** | Single parameter names | Multiple aliases | **Developer-friendly** |
+| **Output Formats** | Text only | 5 formats | **Professional reporting** |
 
 ### 🎯 Use Cases & Scenarios
 
 #### 🏢 **Enterprise Security Testing**
-
 ```bash
 # Test applications with sophisticated path validation
 python dotdotpwn.py -m http -h enterprise.com -f /etc/passwd --depth 6
@@ -225,7 +189,6 @@ python dotdotpwn.py -m http -h enterprise.com -f /etc/passwd --depth 6
 ```
 
 #### 🛡️ **WAF Bypass Testing**
-
 ```bash
 # Deep encoding bypass for advanced WAFs
 python dotdotpwn.py -m http -h protected.com -f /etc/passwd --depth 3
@@ -233,7 +196,6 @@ python dotdotpwn.py -m http -h protected.com -f /etc/passwd --depth 3
 ```
 
 #### 🌐 **Modern Web Applications**
-
 ```bash
 # Test applications that validate legitimate path starts
 python dotdotpwn.py -m http -h webapp.com -f /etc/passwd --depth 5
@@ -241,7 +203,6 @@ python dotdotpwn.py -m http -h webapp.com -f /etc/passwd --depth 5
 ```
 
 #### 🔍 **Comprehensive Pattern Generation**
-
 ```bash
 # Generate all 25,000+ patterns for analysis
 python dotdotpwn.py main --module stdout --os-type unix --file "/etc/passwd" --depth 3

@@ -82,13 +82,11 @@ The GUI is organized into three main areas with adaptive sizing:
 ### Left Panel - Configuration (50% width)
 
 #### Basic Configuration Section
-
 - **Module Selection**: Dropdown with all available fuzzing modules
 - **OS Type**: Target operating system (Unix, Windows, Generic)
 - **Traversal Depth**: Maximum directory traversal depth (1-20)
 
 #### Target Configuration Section
-
 - **Target Host**: Hostname or IP address for network modules
 - **Target URL**: Full URL with TRAVERSAL placeholder (http-url module)
 - **Port**: Custom port number (auto-detects defaults)
@@ -96,7 +94,6 @@ The GUI is organized into three main areas with adaptive sizing:
 - **Pattern**: Success detection string or regex
 
 #### Advanced Options Section
-
 - **Authentication**: Username and password for secured services
 - **HTTP Options**: Method, User-Agent, SSL settings
 - **Behavior**: Delay, continue on error, break on first match
@@ -104,7 +101,6 @@ The GUI is organized into three main areas with adaptive sizing:
 - **Payload**: Custom payload file for payload module
 
 #### Output Configuration Section
-
 - **Report Format**: Text, JSON, CSV, XML, HTML
 - **Output File**: Custom filename for reports
 - **Additional Options**: Quiet mode, extra files, timestamps
@@ -112,21 +108,18 @@ The GUI is organized into three main areas with adaptive sizing:
 ### Right Panel - Monitoring & Output (50% width)
 
 #### Tab 1: Output
-
 - **Real-time Scan Output**: Live stream of scan progress and results
 - **Syntax Highlighting**: Color-coded output for easy reading
 - **Auto-scroll**: Automatic scrolling to latest output
 - **Search & Filter**: Find specific patterns in output
 
 #### Tab 2: Monitoring
-
 - **CPU Usage Graph**: Real-time system and process CPU monitoring
 - **Memory Usage Graph**: RAM consumption tracking
 - **Performance Metrics**: Request rate, response times, success rate
 - **Resource Statistics**: Historical usage data
 
 #### Tab 3: History
-
 - **Scan History**: All previous scans with configurations
 - **Quick Replay**: Re-run previous scans with one click
 - **Export History**: Save scan history for documentation
@@ -140,36 +133,6 @@ The GUI is organized into three main areas with adaptive sizing:
 
 ## 🔧 Configuration Guide
 
-### 🛡️ Detection Method Selection (IDS Evasion)
-
-The GUI includes a Detection Method dropdown for IDS/IPS evasion control:
-
-#### Detection Method Options
-
-| Method              | Payloads | Traffic Level    | Visual Indicator | Use Case                          |
-| ------------------- | -------- | ---------------- | ---------------- | --------------------------------- |
-| **Simple**          | 24       | 🟢 ULTRA STEALTH | Green            | Basic recon, evade all monitoring |
-| **URL Encoding**    | 30       | 🟢 ULTRA STEALTH | Green            | WAF bypass, filter evasion        |
-| **Non-Recursive**   | 71       | 🟢 STEALTH       | Green            | Non-recursive filter bypass       |
-| **Absolute Path**   | 23K      | 🟡 MODERATE      | Orange           | Direct path injection             |
-| **Null Byte**       | 75K      | 🟠 HIGH VOLUME   | Dark Orange      | Extension validation bypass       |
-| **Path Validation** | 1.7M     | 🔴 VERY HIGH     | Red              | Complex validation bypass         |
-| **Any**             | 1.9M     | 🔴 IDS TRIGGER   | Red              | Comprehensive testing             |
-
-#### Real-time Traffic Indicator
-
-The GUI displays a real-time traffic level indicator that updates when you change the detection method:
-
-- **🟢 ULTRA STEALTH**: Perfect for reconnaissance without detection
-- **🟡 MODERATE**: Balanced approach for moderate security environments
-- **🔴 HIGH VOLUME**: May trigger IDS/IPS systems
-
-#### Choosing the Right Method
-
-1. **Start Stealthy**: Begin with `simple` or `url_encoding` for initial reconnaissance
-2. **Escalate Gradually**: Move to `non_recursive` or `absolute_path` if needed
-3. **Full Coverage**: Use `path_validation` or `any` only when comprehensive testing is required
-
 ### Module-Specific Configuration
 
 The GUI automatically adapts its interface based on the selected module:
@@ -177,12 +140,10 @@ The GUI automatically adapts its interface based on the selected module:
 #### HTTP Module (`http`)
 
 **Required Fields** (highlighted in green):
-
 - Target Host
 - Pattern
 
 **Available Options**:
-
 - Port (default: 80/443 for SSL)
 - HTTP Method (GET, POST, HEAD, PUT, DELETE, COPY, MOVE, OPTIONS)
 - User Agent string
@@ -190,7 +151,6 @@ The GUI automatically adapts its interface based on the selected module:
 - Username/Password for authentication
 
 **Example Configuration**:
-
 ```
 Module: http
 Target Host: example.com
@@ -204,14 +164,12 @@ SSL: Disabled
 #### HTTP-URL Module (`http-url`)
 
 **Required Fields** (highlighted in green):
-
 - Target URL (must contain "TRAVERSAL" placeholder)
 - Pattern
 
 **URL Format**: The URL must include the word "TRAVERSAL" which will be replaced with directory traversal patterns.
 
 **Example Configuration**:
-
 ```
 Module: http-url
 Target URL: http://vulnerable.com/page.php?file=TRAVERSAL
@@ -219,7 +177,6 @@ Pattern: root:
 ```
 
 **Valid URL Examples**:
-
 - `http://example.com/include.php?template=TRAVERSAL`
 - `https://app.com/api/files/TRAVERSAL`
 - `http://site.com/download.php?path=TRAVERSAL&type=config`
@@ -227,18 +184,15 @@ Pattern: root:
 #### FTP Module (`ftp`)
 
 **Required Fields** (highlighted in green):
-
 - Target Host
 - Pattern
 
 **Available Options**:
-
 - Port (default: 21)
 - Username (default: anonymous)
 - Password (default: dot@dot.pwn)
 
 **Example Configuration**:
-
 ```
 Module: ftp
 Target Host: ftp.example.com
@@ -251,17 +205,14 @@ Pattern: confidential
 #### TFTP Module (`tftp`)
 
 **Required Fields** (highlighted in green):
-
 - Target Host
 - Pattern
 
 **Available Options**:
-
 - Port (default: 69)
 - Target file specification
 
 **Example Configuration**:
-
 ```
 Module: tftp
 Target Host: 192.168.1.1
@@ -273,19 +224,16 @@ Pattern: enable secret
 #### Payload Module (`payload`)
 
 **Required Fields** (highlighted in green):
-
 - Target Host
 - Port
 - Payload File
 - Pattern
 
 **Available Options**:
-
 - SSL/TLS encryption
 - Custom authentication
 
 **Example Configuration**:
-
 ```
 Module: payload
 Target Host: custom-service.com
@@ -300,14 +248,12 @@ SSL: Enabled
 **Required Fields**: None (pattern generation mode)
 
 **Available Options**:
-
 - OS Type for pattern generation
 - Target file for patterns
 - File extension
 - Depth specification
 
 **Example Configuration**:
-
 ```
 Module: stdout
 OS Type: unix
@@ -320,14 +266,12 @@ Depth: 8
 **Required Fields**: None (offline pattern generation)
 
 **Available Options**:
-
 - OS Type specification
 - Depth configuration
 - Specific file targeting
 - Extra files inclusion
 
 **Example Configuration**:
-
 ```
 Module: generate
 OS Type: windows
@@ -362,7 +306,6 @@ The status bar shows context-sensitive help:
 Use preset buttons for common scenarios:
 
 #### Web App Preset
-
 ```
 Module: http
 OS Type: generic
@@ -374,7 +317,6 @@ Extra Files: Yes
 ```
 
 #### Windows Preset
-
 ```
 Module: http
 OS Type: windows
@@ -385,7 +327,6 @@ Extra Files: Yes
 ```
 
 #### Linux Preset
-
 ```
 Module: http
 OS Type: unix
@@ -397,7 +338,6 @@ OS Detection: Yes
 ```
 
 #### Generate Preset
-
 ```
 Module: generate
 OS Type: generic
@@ -415,7 +355,6 @@ The output tab provides comprehensive scan monitoring:
 
 - **Live Updates**: Real-time streaming of scan progress
 - **Syntax Highlighting**: Color-coded output for different message types
-
   - 🟢 Green: Successful matches and positive results
   - 🔴 Red: Errors and warnings
   - 🔵 Blue: Informational messages
@@ -457,28 +396,24 @@ The output tab provides comprehensive scan monitoring:
 The monitoring tab displays real-time system metrics:
 
 #### CPU Usage Graph
-
 - **System CPU**: Overall system CPU utilization
 - **Process CPU**: DotDotPwn process CPU usage
 - **Historical Data**: Last 60 seconds of CPU activity
 - **Visual Indicators**: Color-coded thresholds
 
 #### Memory Usage Graph
-
 - **System Memory**: Total system RAM usage
 - **Process Memory**: DotDotPwn memory consumption
 - **Memory Statistics**: Peak usage, current usage, available memory
 - **Leak Detection**: Monitoring for memory leaks during long scans
 
 #### Performance Metrics
-
 - **Request Rate**: Requests per second
 - **Response Time**: Average response time per request
 - **Success Rate**: Percentage of successful requests
 - **Error Rate**: Network errors and timeouts
 
 #### Network Statistics
-
 - **Bytes Sent**: Total data transmitted
 - **Bytes Received**: Total data received
 - **Connection Count**: Active network connections
@@ -489,14 +424,12 @@ The monitoring tab displays real-time system metrics:
 The history tab maintains a complete audit trail:
 
 #### Features
-
 - **Scan Records**: All previous scans with timestamps
 - **Configuration Storage**: Save and reload scan configurations
 - **Result Summaries**: Quick overview of findings
 - **Export Options**: Export history for documentation
 
 #### History Entry Example
-
 ```
 Scan #15 - 2025-09-28 10:30:15
 Module: http
@@ -519,7 +452,6 @@ When OS Detection is enabled:
 4. **Manual Override**: Option to manually specify if detection fails
 
 #### OS Detection Output
-
 ```
 [+] OS Detection enabled
 [*] Scanning target OS...
@@ -538,7 +470,6 @@ Service detection provides additional intelligence:
 4. **Security Headers**: Analysis of security headers
 
 #### Service Detection Output
-
 ```
 [+] Service Detection enabled
 [*] Grabbing service banner...
@@ -558,7 +489,6 @@ The bisection algorithm optimizes scanning efficiency:
 4. **Precision Results**: Provides exact depth information
 
 #### Bisection Output
-
 ```
 [+] Bisection algorithm enabled
 [*] Testing maximum depth (12)...
@@ -582,7 +512,6 @@ For the payload module:
 4. **Template Support**: Common payload templates
 
 #### Payload File Format
-
 ```
 # Custom payloads for service testing
 TRAVERSAL/config.ini
@@ -598,13 +527,11 @@ TRAVERSAL/../../windows/system32/drivers/etc/hosts
 The GUI supports multiple export formats:
 
 #### Text Format
-
 - Human-readable reports
 - Console-style output
 - Easy to read and share
 
 #### JSON Format
-
 ```json
 {
   "scan_info": {
@@ -630,21 +557,18 @@ The GUI supports multiple export formats:
 ```
 
 #### HTML Format
-
 - Professional web reports
 - Embedded styling and graphics
 - Charts and visualizations
 - Suitable for presentations
 
 #### CSV Format
-
 ```csv
 Timestamp,URL,Method,Depth,Pattern,Response_Code,Content_Length
 2025-09-28T10:30:15,http://example.com/page.php?file=../../../etc/passwd,GET,3,root:,200,1847
 ```
 
 #### XML Format
-
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <dotdotpwn_report>
@@ -666,19 +590,16 @@ Timestamp,URL,Method,Depth,Pattern,Response_Code,Content_Length
 ### Report Features
 
 #### Automatic Reporting
-
 - **Auto-save**: Automatically save reports after scan completion
 - **Timestamping**: Add timestamps to report filenames
 - **Directory Organization**: Organize reports by date or target
 
 #### Manual Export
-
 - **Export Current Results**: Save current scan results
 - **Export History**: Save all scan history
 - **Custom Formatting**: Choose specific format options
 
 #### Report Sharing
-
 - **Professional Formatting**: Reports suitable for business use
 - **Compliance Ready**: Formats suitable for security compliance
 - **Team Collaboration**: Shareable formats for team review
@@ -688,7 +609,6 @@ Timestamp,URL,Method,Depth,Pattern,Response_Code,Content_Length
 The GUI supports comprehensive keyboard navigation:
 
 ### Global Shortcuts
-
 - **Ctrl+R**: Start scan
 - **Ctrl+S**: Stop scan
 - **Ctrl+E**: Export results
@@ -698,7 +618,6 @@ The GUI supports comprehensive keyboard navigation:
 - **F5**: Refresh/restart scan
 
 ### Navigation Shortcuts
-
 - **Tab**: Navigate between fields
 - **Shift+Tab**: Navigate backwards
 - **Enter**: Activate focused button
@@ -706,7 +625,6 @@ The GUI supports comprehensive keyboard navigation:
 - **Ctrl+Tab**: Switch between output tabs
 
 ### Output Control
-
 - **Ctrl+F**: Find in output
 - **Ctrl+A**: Select all output
 - **Ctrl+C**: Copy selected output
@@ -715,7 +633,6 @@ The GUI supports comprehensive keyboard navigation:
 - **Page Up/Down**: Scroll output
 
 ### Configuration Shortcuts
-
 - **F2**: Open configuration file
 - **F3**: Load configuration
 - **F4**: Save configuration
@@ -731,7 +648,6 @@ The GUI supports comprehensive keyboard navigation:
 The GUI uses QDarkStyle but can be customized:
 
 #### Custom Styling
-
 ```python
 # Custom color scheme (modify in gui/dotdotpwn_gui.py)
 custom_style = """
@@ -750,14 +666,12 @@ QLineEdit {
 ### Configuration Persistence
 
 #### Settings Storage
-
 - **Window Size**: Remembers last window size and position
 - **Layout Settings**: Saves splitter positions
 - **Default Values**: Stores commonly used configurations
 - **Theme Preferences**: Remembers UI preferences
 
 #### Configuration Files
-
 ```yaml
 # ~/.dotdotpwn/gui_config.yaml
 window:
@@ -782,7 +696,6 @@ theme:
 ### Common Issues
 
 #### GUI Won't Start
-
 ```bash
 # Check PyQt6 installation
 python -c "import PyQt6; print('PyQt6 OK')"
@@ -795,7 +708,6 @@ python --version  # Should be 3.8+
 ```
 
 #### Resource Monitoring Not Working
-
 ```bash
 # Install psutil for system monitoring
 pip install psutil>=5.9.0
@@ -831,7 +743,6 @@ python launch_gui.py
 ```
 
 Debug output provides:
-
 - Detailed error messages
 - Internal state information
 - Network communication details

@@ -11,7 +11,7 @@ import ftplib
 import time
 import asyncio
 from typing import List, Optional, Dict, Any, Callable
-from ..core.traversal_engine import TraversalEngine, OSType, DetectionMethod
+from ..core.traversal_engine import TraversalEngine, OSType
 from ..core.bisection_algorithm import BisectionAlgorithm, FTPBisectionTester
 
 
@@ -368,8 +368,7 @@ class FTPFuzzer:
         time_delay: float = 0.3,
         break_on_first: bool = False,
         continue_on_error: bool = False,
-        bisection: bool = False,
-        detection_method: DetectionMethod = DetectionMethod.ANY
+        bisection: bool = False
     ) -> Dict[str, Any]:
         """
         Generate traversals and fuzz in one operation
@@ -395,8 +394,7 @@ class FTPFuzzer:
             depth=depth,
             specific_file=specific_file,
             extra_files=extra_files,
-            extension=extension,
-            detection_method=detection_method
+            extension=extension
         )
 
         # Perform fuzzing
