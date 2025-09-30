@@ -345,8 +345,8 @@ python dotdotpwn.py --module http-url --url "http://example.com/page.php?file=TR
 # HTTPS with complex URL
 python dotdotpwn.py --module http-url --url "https://app.com/api/v1/files/TRAVERSAL?format=raw" --pattern "<?php"
 
-# POST data parameter testing
-python dotdotpwn.py --module http-url --url "http://site.com/upload.php" --method POST --data "filename=TRAVERSAL&action=view" --pattern "sensitive"
+# URL with query parameters
+python dotdotpwn.py --module http-url --url "http://site.com/upload.php?filename=TRAVERSAL&action=view" --pattern "sensitive"
 ```
 
 ### FTP Module (`--module ftp`)

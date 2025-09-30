@@ -794,6 +794,8 @@ data: {"duration": 135, "vulnerabilities_found": 1}
 }
 ```
 
+**Note**: The `http_options` object (including the `method` parameter) only applies when using the `http` module. It is not used by `http-url`, `ftp`, `tftp`, `payload`, or `stdout` modules.
+
 ### Vulnerability Model
 
 ```json
