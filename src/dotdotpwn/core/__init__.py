@@ -7,7 +7,7 @@ This package contains the core functionality:
 - BisectionAlgorithm: Finds exact vulnerability depth
 """
 
-from .traversal_engine import TraversalEngine, OSType
+from .traversal_engine import TraversalEngine, OSType, DetectionMethod
 from .fingerprint import Fingerprint
 from .bisection_algorithm import BisectionAlgorithm, HTTPBisectionTester, FTPBisectionTester
 
